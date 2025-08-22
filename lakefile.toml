@@ -1,0 +1,14 @@
+name = "lean_niche"
+version = "0.1.0"
+defaultTargets = ["lean_niche"]
+
+# [dependencies]
+# mathlib = { git = "https://github.com/leanprover-community/mathlib4", rev = "v4.22.0" }
+
+[[lean_lib]]
+name = "LeanNiche"
+srcDir = "src"
+
+[[lean_exe]]
+name = "lean_niche"
+root = "Main"
