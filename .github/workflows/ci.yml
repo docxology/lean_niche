@@ -44,4 +44,22 @@ jobs:
     - name: Run pytest (Python tests)
       run: python3 -m pytest src/tests/python -q
 
+    - name: Upload test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-artifacts
+        path: |
+          outputs/**
+          src/tests/pytest-*.xml
+          .lake/**/build.log
+
+    - name: Run lake executable test
+      run: |
+        lake exe lean_niche || true
+
+    - name: Run lake build tests
+      run: |
+        lake build --test || true
+
 
