@@ -712,6 +712,15 @@ Failed: {metrics.get('failed_tests', 0)}
         self.logger.info(f"Exported Lean code to: {output_path}")
         return output_path
 
+    # Backwards-compatibility wrapper name used by older examples
+    def generate_proof_output(self, results: Dict[str, Any], output_dir: Path, prefix: str = "proof_outcomes") -> Dict[str, Path]:
+        # Alias to save_comprehensive_proof_outcomes if present
+        try:
+            return self.save_comprehensive_proof_outcomes(results, output_dir, prefix)
+        except Exception as e:
+            self.logger.error(f"generate_proof_output alias failed: {e}")
+            return {}
+
     def generate_proof_output(self, results: Dict[str, Any], output_dir: Path, prefix: str = "proof_outcomes") -> Dict[str, Path]:
         """Generate and save proof outputs and summaries.
 

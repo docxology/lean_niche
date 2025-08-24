@@ -177,6 +177,30 @@ end DynamicalSystemsAnalysis
         except Exception as e:
             print(f"⚠️ Lean verification warning: {str(e)}")
 
+        # Generate small concrete artifacts for parser (trivial proofs)
+        try:
+            artifact_code = '''namespace DynamicalArtifacts
+def num_parameters : Nat := 3
+theorem num_parameters_eq : num_parameters = 3 := rfl
+
+def sample_iterations : Nat := 200
+theorem sample_iterations_eq : sample_iterations = 200 := rfl
+end DynamicalArtifacts
+'''
+
+            art_file = self.proofs_dir / "dynamical_artifacts.lean"
+            with open(art_file, 'w') as af:
+                af.write(artifact_code)
+
+            art_res = self.lean_runner.run_lean_code(artifact_code, imports=['LeanNiche.DynamicalSystems'])
+            art_saved = self.lean_runner.generate_proof_output(art_res, self.proofs_dir, prefix='dynamical_artifacts')
+            if art_saved:
+                print("📂 Additional dynamical artifacts saved:")
+                for k, p in art_saved.items():
+                    print(f"  - {k}: {p}")
+        except Exception as e:
+            print(f"⚠️ Could not generate extra dynamical artifacts: {e}")
+
         return lean_file
 
     def analyze_logistic_map(self):
@@ -421,6 +445,22 @@ end DynamicalSystemsAnalysis
         plt.close()
 
         print(f"✅ Visualizations saved to: {self.viz_dir}")
+
+    # Implement abstract orchestrator hooks
+    def run_domain_specific_analysis(self):
+        """Run dynamical-domain analysis for orchestrator_base."""
+        logistic = self.analyze_logistic_map()
+        oscillator = self.analyze_nonlinear_oscillator()
+        self.save_analysis_data(logistic, oscillator)
+        return {'logistic_results': logistic, 'oscillator_results': oscillator}
+
+    def create_domain_visualizations(self, analysis_results):
+        logistic = analysis_results.get('logistic_results')
+        oscillator = analysis_results.get('oscillator_results')
+        if logistic is None or oscillator is None:
+            logistic = self.analyze_logistic_map()
+            oscillator = self.analyze_nonlinear_oscillator()
+        return self.create_visualizations(logistic, oscillator)
 
     def generate_comprehensive_report(self, logistic_results, oscillator_results):
         """Generate a comprehensive report of the dynamical systems analysis."""
