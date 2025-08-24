@@ -1,1 +1,62 @@
-/.lake
+# Build artifacts
+build/
+.lake/
+*.olean
+*.c
+*.o
+*.lake
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv
+
+# Visualizations and data
+visualizations/
+*.png
+*.jpg
+*.svg
+*.pdf
+data/
+*.json
+*.csv
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Documentation builds
+docs/_build/
+docs/build/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

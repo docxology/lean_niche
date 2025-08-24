@@ -1,0 +1,291 @@
+# LeanNiche Cursor Rules - Comprehensive Documentation Standards
+
+## CORE PRINCIPLES
+
+### 1. REAL FULL METHODS ONLY
+- **NO MOCKS OR STUBS**: All code must implement complete, working functionality
+- **NO PLACEHOLDER CODE**: Every function must have full implementation
+- **NO TODO COMMENTS**: All features must be complete and tested
+- **FULL VALIDATION**: Every theorem must have complete proof
+- **COMPLETE DEPENDENCIES**: All imports must resolve to working code
+
+### 2. COMPREHENSIVE DOCUMENTATION
+- **EVERY FUNCTION**: Must have detailed docstring with parameters, return values, examples
+- **EVERY THEOREM**: Must have complete proof documentation with mathematical context
+- **EVERY MODULE**: Must have overview documentation explaining purpose and usage
+- **CODE COMMENTS**: Must explain complex logic and mathematical reasoning
+- **USAGE EXAMPLES**: Must provide practical examples for all major features
+
+### 3. MATHEMATICAL RIGOR
+- **PROOF COMPLETENESS**: Every theorem must have complete, verified proof
+- **TYPE CORRECTNESS**: All functions must be properly typed with mathematical accuracy
+- **MATHEMATICAL ACCURACY**: All implementations must reflect correct mathematics
+- **EDGE CASE HANDLING**: All functions must handle edge cases mathematically
+- **NUMERICAL STABILITY**: Numerical computations must be mathematically sound
+
+### 4. CODE QUALITY STANDARDS
+
+#### LEAN-SPECIFIC RULES
+```lean
+/-- Complete docstring with:
+   - Mathematical description
+   - Parameter specifications
+   - Return value description
+   - Examples with expected results
+   - Complexity analysis
+-/
+theorem example_theorem (n : ℕ) :
+  0 < n → ∃ m : ℕ, n = 2 * m ∨ n = 2 * m + 1 := by
+  -- Complete proof with detailed comments
+  intro h
+  cases n with
+  | zero => contradiction  -- Mathematical reasoning
+  | succ n' =>
+    -- Detailed step-by-step proof
+    exists (n' / 2)
+    -- Complete verification
+```
+
+#### PYTHON-SPECIFIC RULES
+```python
+def mathematical_function(x: float, precision: float = 1e-10) -> float:
+    """Complete docstring with:
+    Args:
+        x: Mathematical parameter with domain specification
+        precision: Numerical precision requirements
+
+    Returns:
+        float: Result with mathematical accuracy guarantees
+
+    Raises:
+        ValueError: Specific error conditions with mathematical context
+
+    Examples:
+        >>> mathematical_function(1.0)
+        1.0
+        >>> mathematical_function(0.0, 1e-15)
+        0.0
+
+    Mathematical Notes:
+        - Convergence properties
+        - Error bounds
+        - Computational complexity
+    """
+    # Complete implementation with numerical stability
+    pass
+```
+
+### 5. TESTING AND VALIDATION
+
+#### COMPREHENSIVE TESTING
+- **UNIT TESTS**: Every function must have complete test coverage
+- **PROOF VERIFICATION**: Every theorem must be verified by Lean
+- **INTEGRATION TESTS**: Complete system functionality tests
+- **EDGE CASE TESTING**: Mathematical edge cases must be covered
+- **PERFORMANCE TESTING**: Computational performance validation
+
+#### VALIDATION STANDARDS
+```lean
+/-- Test suite for mathematical functions -/
+def test_mathematical_function : IO Unit := do
+  -- Complete test cases with mathematical verification
+  let test1 := mathematical_function 1.0
+  assert_eq test1 1.0
+
+  let test2 := mathematical_function 0.0
+  assert_eq test2 0.0
+
+  -- Edge case testing
+  let test3 := mathematical_function (-1.0)
+  -- Mathematical verification of result
+
+  IO.println "✅ All mathematical tests passed"
+```
+
+### 6. DOCUMENTATION STRUCTURE
+
+#### MODULE DOCUMENTATION
+```lean
+/-!
+# Module Name - Complete Description
+
+## Overview
+Detailed explanation of module purpose, mathematical foundations,
+and relationship to other modules.
+
+## Mathematical Background
+Complete mathematical context, theorems, and foundations that
+this module builds upon.
+
+## Implementation Details
+How the mathematical concepts are implemented in Lean, including:
+- Data structure choices
+- Algorithm implementations
+- Proof strategies
+- Performance considerations
+
+## Usage Examples
+Complete, working examples showing:
+- Basic usage patterns
+- Advanced features
+- Integration with other modules
+- Real-world applications
+
+## References
+Academic papers, textbooks, and other resources that inform
+the mathematical foundations and implementation choices.
+-/
+```
+
+#### FUNCTION DOCUMENTATION
+```lean
+/--
+Brief, clear description of what the function does.
+
+## Mathematical Description
+Complete mathematical specification including:
+- Domain and codomain
+- Preconditions and postconditions
+- Invariants maintained
+- Mathematical properties
+
+## Parameters
+- `param1`: Complete description with mathematical type and constraints
+- `param2`: Mathematical specification and requirements
+
+## Returns
+Complete mathematical description of return value including:
+- Mathematical type and properties
+- Range and constraints
+- Error conditions
+
+## Examples
+```lean
+-- Complete working examples with expected results
+let result := function_name param1 param2
+-- Expected: mathematical_result
+```
+
+## Complexity Analysis
+- **Time Complexity**: Mathematical analysis of computational complexity
+- **Space Complexity**: Memory requirements analysis
+- **Proof Complexity**: Size and complexity of verification
+
+## Implementation Notes
+- Algorithm choice reasoning
+- Proof strategy explanation
+- Optimization considerations
+- Numerical stability notes
+-/
+```
+
+### 7. ERROR HANDLING AND VALIDATION
+
+#### MATHEMATICAL ERROR CONDITIONS
+```lean
+def mathematical_function (x : ℝ) (h : 0 < x) : ℝ :=
+  -- Implementation with mathematical preconditions
+  if x = 0 then
+    -- Mathematical handling of edge case
+    0
+  else
+    -- Normal computation
+    1 / x
+```
+
+#### VALIDATION FUNCTIONS
+```lean
+def validate_input (x : ℝ) : Option String :=
+  if x < 0 then
+    some "Input must be non-negative for mathematical reasons"
+  else if x = 0 then
+    some "Input cannot be zero due to division by zero"
+  else
+    none
+
+def safe_mathematical_function (x : ℝ) : Option ℝ :=
+  match validate_input x with
+  | some error => none
+  | none => some (mathematical_function x (by linarith))
+```
+
+### 8. PERFORMANCE AND OPTIMIZATION
+
+#### PERFORMANCE STANDARDS
+- **PROOF COMPILATION**: All proofs must compile within reasonable time
+- **FUNCTION EVALUATION**: Mathematical functions must be computationally efficient
+- **MEMORY USAGE**: Implementation must be memory efficient
+- **NUMERICAL ACCURACY**: Results must maintain mathematical precision
+
+#### OPTIMIZATION GUIDELINES
+```lean
+/-- Optimized implementation with performance considerations -/
+def optimized_function (input : LargeType) : OutputType :=
+  -- Implementation optimized for:
+  -- 1. Minimal proof size
+  -- 2. Fast compilation
+  -- 3. Efficient computation
+  -- 4. Mathematical accuracy
+  result
+```
+
+### 9. MAINTENANCE AND EXTENSIBILITY
+
+#### CODE ORGANIZATION
+- **MODULAR DESIGN**: Each module has clear, single responsibility
+- **CLEAR INTERFACES**: Well-defined module boundaries and APIs
+- **DOCUMENTED DEPENDENCIES**: All inter-module dependencies clearly documented
+- **EXTENSIBILITY POINTS**: Clear places where future extensions can be added
+
+#### VERSION CONTROL
+- **COMPLETE COMMITS**: Each commit represents complete, working functionality
+- **DETAILED MESSAGES**: Commit messages explain mathematical and implementation changes
+- **TESTING**: All changes must pass complete test suite
+- **DOCUMENTATION**: All changes must be fully documented
+
+### 10. QUALITY ASSURANCE
+
+#### AUTOMATED CHECKS
+- **BUILD VERIFICATION**: All code must compile successfully
+- **TEST EXECUTION**: Complete test suite must pass
+- **PROOF VERIFICATION**: All theorems must be verified
+- **DOCUMENTATION VALIDATION**: All documentation must be complete
+- **PERFORMANCE BENCHMARKS**: Performance standards must be met
+
+#### MANUAL REVIEW REQUIREMENTS
+- **MATHEMATICAL ACCURACY**: All mathematical content reviewed by experts
+- **PROOF CORRECTNESS**: All proofs reviewed for mathematical validity
+- **CODE QUALITY**: Implementation reviewed for clarity and efficiency
+- **DOCUMENTATION COMPLETENESS**: All documentation reviewed for completeness
+
+### 11. PROJECT STANDARDS
+
+#### NAMING CONVENTIONS
+- **LEAN FUNCTIONS**: `snake_case` for functions, `PascalCase` for types
+- **THEOREMS**: `descriptive_name` clearly indicating mathematical content
+- **MODULES**: `PascalCase` for module names
+- **VARIABLES**: Descriptive names indicating mathematical meaning
+
+#### CODE FORMATTING
+- **CONSISTENT INDENTATION**: 2 spaces standard
+- **CLEAR STRUCTURE**: Logical organization of code sections
+- **COMPREHENSIVE COMMENTS**: Every complex section documented
+- **MATHEMATICAL NOTATION**: Clear mathematical notation in comments
+
+### 12. INTEGRATION AND DEPLOYMENT
+
+#### DEPENDENCY MANAGEMENT
+- **COMPLETE SPECIFICATIONS**: All dependencies fully specified
+- **VERSION CONTROL**: Dependency versions properly managed
+- **COMPATIBILITY**: All dependencies compatible with each other
+- **SECURITY**: Dependencies from trusted, maintained sources
+
+#### DEPLOYMENT STANDARDS
+- **COMPLETE BUILD**: All components build successfully
+- **FULL TESTING**: Complete test suite passes
+- **DOCUMENTATION**: All documentation complete and accurate
+- **REPRODUCIBILITY**: Environment can be reproduced exactly
+
+---
+
+**ENFORCEMENT**: These rules must be followed for ALL code in the LeanNiche project. No exceptions allowed for real, complete mathematical implementations.

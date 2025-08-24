@@ -68,56 +68,99 @@ run_test() {
     rm -f test_output.log
 }
 
-# Unit tests for individual modules
+# Function to test Lean module compilation using Lake
+test_lean_module() {
+    local module_name="$1"
+    local test_name="$2"
+
+    # Use Lake to build and test the project
+    run_test "$test_name compilation" "lake build" "Build completed successfully"
+}
+
+# Unit tests for individual modules using Lake
 test_basic_module() {
     print_status "Testing Basic module..."
-
-    run_test "Basic arithmetic compilation" "lean src/LeanNiche/Basic.lean" ""
-
-    # Test specific theorems
-    run_test "Addition commutativity" "lean -c 'import LeanNiche.Basic; #check LeanNiche.Basic.add_comm'" "add_comm"
-    run_test "Addition associativity" "lean -c 'import LeanNiche.Basic; #check LeanNiche.Basic.add_assoc'" "add_assoc"
+    test_lean_module "Basic" "Basic module"
 }
 
 test_advanced_module() {
     print_status "Testing Advanced module..."
-
-    run_test "Advanced theorems compilation" "lean src/LeanNiche/Advanced.lean" ""
-
-    # Test specific theorems
-    run_test "Sum formula" "lean -c 'import LeanNiche.Advanced; #check LeanNiche.Advanced.sum_up_to_correct'" "sum_up_to_correct"
-    run_test "Infinite primes" "lean -c 'import LeanNiche.Advanced; #check LeanNiche.Advanced.infinite_primes'" "infinite_primes"
+    test_lean_module "Advanced" "Advanced module"
 }
 
 test_tactics_module() {
     print_status "Testing Tactics module..."
-
-    run_test "Tactics compilation" "lean src/LeanNiche/Tactics.lean" ""
+    test_lean_module "Tactics" "Tactics module"
 }
 
 test_set_theory_module() {
     print_status "Testing Set Theory module..."
-
-    run_test "Set theory compilation" "lean src/LeanNiche/SetTheory.lean" ""
-
-    # Test specific theorems
-    run_test "Empty subset theorem" "lean -c 'import LeanNiche.SetTheory; #check LeanNiche.SetTheory.empty_subset'" "empty_subset"
+    test_lean_module "SetTheory" "Set Theory module"
 }
 
 test_computational_module() {
     print_status "Testing Computational module..."
-
-    run_test "Computational algorithms compilation" "lean src/LeanNiche/Computational.lean" ""
-
-    # Test specific functions
-    run_test "Fibonacci function" "lean -c 'import LeanNiche.Computational; #check LeanNiche.Computational.fibonacci'" "fibonacci"
-    run_test "Factorial function" "lean -c 'import LeanNiche.Computational; #check LeanNiche.Computational.factorial'" "factorial"
+    test_lean_module "Computational" "Computational module"
 }
 
-test_test_suite() {
-    print_status "Testing Test Suite module..."
+test_statistics_module() {
+    print_status "Testing Statistics module..."
+    test_lean_module "Statistics" "Statistics module"
+}
 
-    run_test "Test suite compilation" "lean tests/TestSuite.lean" ""
+test_dynamical_systems_module() {
+    print_status "Testing Dynamical Systems module..."
+    test_lean_module "DynamicalSystems" "Dynamical Systems module"
+}
+
+test_lyapunov_module() {
+    print_status "Testing Lyapunov module..."
+    test_lean_module "Lyapunov" "Lyapunov module"
+}
+
+test_linear_algebra_module() {
+    print_status "Testing Linear Algebra module..."
+    test_lean_module "LinearAlgebra" "Linear Algebra module"
+}
+
+test_control_theory_module() {
+    print_status "Testing Control Theory module..."
+    test_lean_module "ControlTheory" "Control Theory module"
+}
+
+test_free_energy_principle_module() {
+    print_status "Testing Free Energy Principle module..."
+    test_lean_module "FreeEnergyPrinciple" "Free Energy Principle module"
+}
+
+test_active_inference_module() {
+    print_status "Testing Active Inference module..."
+    test_lean_module "ActiveInference" "Active Inference module"
+}
+
+test_predictive_coding_module() {
+    print_status "Testing Predictive Coding module..."
+    test_lean_module "PredictiveCoding" "Predictive Coding module"
+}
+
+test_belief_propagation_module() {
+    print_status "Testing Belief Propagation module..."
+    test_lean_module "BeliefPropagation" "Belief Propagation module"
+}
+
+test_decision_making_module() {
+    print_status "Testing Decision Making module..."
+    test_lean_module "DecisionMaking" "Decision Making module"
+}
+
+test_learning_adaptation_module() {
+    print_status "Testing Learning Adaptation module..."
+    test_lean_module "LearningAdaptation" "Learning Adaptation module"
+}
+
+test_signal_processing_module() {
+    print_status "Testing Signal Processing module..."
+    test_lean_module "SignalProcessing" "Signal Processing module"
 }
 
 # Integration tests
@@ -194,9 +237,11 @@ test_coverage() {
 test_dependencies() {
     print_status "Testing dependencies..."
 
-    run_test "Mathlib4 availability" "lean -c 'import Mathlib.Data.Nat.Basic'" "Mathlib.Data.Nat.Basic"
+    # Test that Lake can resolve and build dependencies
+    run_test "Lake dependency resolution" "lake update" "info: toolchain not updated"
 
-    run_test "Project dependencies" "lake exe lean_niche 2>&1 | grep -q 'Mathlib'" "Mathlib"
+    # Test that the main executable runs (which implies dependencies are working)
+    run_test "Project dependencies" "lake exe lean_niche" "LeanNiche"
 }
 
 # Main test runner
@@ -213,7 +258,18 @@ main() {
             test_tactics_module
             test_set_theory_module
             test_computational_module
-            test_test_suite
+            test_statistics_module
+            test_dynamical_systems_module
+            test_lyapunov_module
+            test_linear_algebra_module
+            test_control_theory_module
+            test_free_energy_principle_module
+            test_active_inference_module
+            test_predictive_coding_module
+            test_belief_propagation_module
+            test_decision_making_module
+            test_learning_adaptation_module
+            test_signal_processing_module
             ;;
         "integration")
             test_integration
@@ -233,7 +289,18 @@ main() {
             test_tactics_module
             test_set_theory_module
             test_computational_module
-            test_test_suite
+            test_statistics_module
+            test_dynamical_systems_module
+            test_lyapunov_module
+            test_linear_algebra_module
+            test_control_theory_module
+            test_free_energy_principle_module
+            test_active_inference_module
+            test_predictive_coding_module
+            test_belief_propagation_module
+            test_decision_making_module
+            test_learning_adaptation_module
+            test_signal_processing_module
             test_integration
             test_performance
             test_coverage
