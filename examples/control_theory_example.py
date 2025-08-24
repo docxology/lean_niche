@@ -16,7 +16,6 @@ Orchestrator Pattern:
 """
 
 import sys
-import os
 import json
 import numpy as np
 import matplotlib.pyplot as plt
@@ -51,7 +50,8 @@ class ControlTheoryOrchestrator(LeanNicheOrchestratorBase):
 
         Exits the program if Lean is not found or returns a non-zero status.
         """
-        import shutil, subprocess
+        import shutil
+        import subprocess
         lean_exe = shutil.which(self.lean_runner.lean_path) or shutil.which('lean')
         if not lean_exe:
             print("❌ Real Lean binary not found in PATH. Please install Lean and ensure 'lean' is available.")
@@ -193,17 +193,18 @@ end ControlTheoryAnalysis
         # Verify Lean compilation and save proof outputs
         try:
             verification_result = self.lean_runner.run_lean_code(control_lean_code)
-            saved_outputs = {}
             if verification_result.get('success', False):
                 print("✅ Lean control theory theorems compiled successfully")
 
                 # Export the created Lean code into proofs directory
-                exported_path = self.lean_runner.export_lean_code(control_lean_code, self.proofs_dir / "control_theory.lean")
+                try:
+                    self.lean_runner.export_lean_code(control_lean_code, self.proofs_dir / "control_theory.lean")
+                except Exception:
+                    pass
 
                 # Generate categorized proof outputs (JSON files)
-                saved_outputs = self.lean_runner.generate_proof_output(verification_result, self.proofs_dir, prefix="control_theory")
-
-                print(f"📊 Proof outcomes saved: {', '.join(p.name for p in saved_outputs.values())}")
+                self.lean_runner.generate_proof_output(verification_result, self.proofs_dir, prefix="control_theory")
+                print("📊 Proof outcomes saved")
             else:
                 print(f"⚠️ Lean verification warning: {verification_result.get('error', 'Unknown')}")
         except Exception as e:
@@ -230,7 +231,7 @@ end ControlTheoryArtifacts
             if extra_saved:
                 print("📂 Additional proof artifacts saved:")
                 for k, p in extra_saved.items():
-                    print(f"  - {k}: {p}")
+                    print("  - {}: {}".format(k, p))
         except Exception as e:
             print(f"⚠️ Could not generate extra control artifacts: {e}")
 
@@ -550,7 +551,7 @@ end ControlTheoryArtifacts
         # Add text annotations
         for i in range(A.shape[0]):
             for j in range(A.shape[1]):
-                text = ax.text(j, i, '.2f', ha="center", va="center", color="w")
+                ax.text(j, i, '.2f', ha="center", va="center", color="w")
 
         plt.colorbar(im, ax=ax)
         plt.tight_layout()
@@ -838,7 +839,7 @@ def main():
         report_file = orchestrator.generate_comprehensive_report(pid_results, stability_results)
 
         print("\n📋 Step 7: Creating execution summary...")
-        summary = orchestrator.create_execution_summary()
+        orchestrator.create_execution_summary()
 
         # Final output
         print("\n" + "=" * 60)
@@ -847,7 +848,7 @@ def main():
         print(f"📁 Output Directory: {orchestrator.output_dir}")
         print(f"🎛️ PID Controllers Tested: {len(pid_results)}")
         print(f"🔬 Stability Analysis: {'✅ Complete' if stability_results['is_stable'] else '⚠️ Unstable system'}")
-        print(f"📈 Visualizations Created: 4")
+        print("📈 Visualizations Created: 4")
         print(f"📝 Report Generated: {report_file.name}")
         print(f"🔬 Lean Code Generated: {lean_file.name}")
         print("\n🎯 Key Features Demonstrated:")
