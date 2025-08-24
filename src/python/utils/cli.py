@@ -8,11 +8,11 @@ import json
 import os
 from pathlib import Path
 from typing import Optional
-from python.visualization.visualization import (
+from ..visualization.visualization import (
     MathematicalVisualizer,
     StatisticalAnalyzer,
     DynamicalSystemsVisualizer,
-    create_visualization_gallery
+    create_visualization_gallery,
 )
 
 @click.group()

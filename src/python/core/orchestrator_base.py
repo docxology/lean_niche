@@ -21,18 +21,15 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 from abc import ABC, abstractmethod
 
-# Add project `src` to path for imports (ensure package `python` is importable)
-sys.path.append(str(Path(__file__).parent.parent.parent))
-
+# Use package-relative imports so test collection and packaging work correctly.
 try:
-    from python.lean_runner import LeanRunner
-    from python.analysis.comprehensive_analysis import ComprehensiveMathematicalAnalyzer
-    from python.visualization.visualization import MathematicalVisualizer
-    from python.analysis.data_generator import MathematicalDataGenerator
-except ImportError as e:
-    print(f"❌ Import error: {e}")
-    print("Please run from the LeanNiche project root after setup")
-    sys.exit(1)
+    # Relative imports within the `src.python` package
+    from .lean_runner import LeanRunner
+    from ..analysis.comprehensive_analysis import ComprehensiveMathematicalAnalyzer
+    from ..visualization.visualization import MathematicalVisualizer
+    from ..analysis.data_generator import MathematicalDataGenerator
+except Exception as e:  # pragma: no cover - surface import errors clearly
+    raise ImportError(f"Failed to import orchestrator dependencies: {e}")
 
 
 class LeanNicheOrchestratorBase(ABC):

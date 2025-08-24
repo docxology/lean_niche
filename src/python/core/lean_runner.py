@@ -607,16 +607,15 @@ Failed: {metrics.get('failed_tests', 0)}
         if results.get('result'):
             proof_data = results['result']
 
-            # Save theorems and lemmas
-            if proof_data.get('theorems_proven') or proof_data.get('lemmas_proven'):
-                theorems_file = proof_dir / f"{prefix}_theorems_{timestamp}.json"
-                with open(theorems_file, 'w') as f:
-                    json.dump({
-                        'theorems_proven': proof_data.get('theorems_proven', []),
-                        'lemmas_proven': proof_data.get('lemmas_proven', []),
-                        'axioms_defined': proof_data.get('axioms_defined', [])
-                    }, f, indent=2, default=str)
-                saved_files['theorems'] = theorems_file
+            # Save theorems and lemmas (ensure key always present even if empty)
+            theorems_file = proof_dir / f"{prefix}_theorems_{timestamp}.json"
+            with open(theorems_file, 'w') as f:
+                json.dump({
+                    'theorems_proven': proof_data.get('theorems_proven', []),
+                    'lemmas_proven': proof_data.get('lemmas_proven', []),
+                    'axioms_defined': proof_data.get('axioms_defined', [])
+                }, f, indent=2, default=str)
+            saved_files['theorems'] = theorems_file
 
             # Save definitions and structures
             if (proof_data.get('definitions_created') or

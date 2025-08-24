@@ -26,13 +26,18 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 try:
-    # Import from the properly structured src.python modules
-    from python.core.orchestrator_base import LeanNicheOrchestratorBase
-    from python.visualization.visualization import StatisticalAnalyzer
-except ImportError as e:
-    print(f"❌ Import error: {e}")
-    print("Please run from the LeanNiche project root after setup")
-    sys.exit(1)
+    # Prefer explicit src package imports when running under tests
+    from src.python.core.orchestrator_base import LeanNicheOrchestratorBase
+    from src.python.visualization.visualization import StatisticalAnalyzer
+except ImportError:
+    try:
+        # Fall back to older import path if available
+        from python.core.orchestrator_base import LeanNicheOrchestratorBase
+        from python.visualization.visualization import StatisticalAnalyzer
+    except Exception as e:
+        print(f"❌ Import error: {e}")
+        print("Please run from the LeanNiche project root after setup")
+        raise
 
 class StatisticalAnalysisOrchestrator(LeanNicheOrchestratorBase):
     """Clean thin orchestrator for statistical analysis workflow using comprehensive Lean integration."""
