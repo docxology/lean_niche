@@ -42,9 +42,15 @@ jobs:
         elan toolchain install stable || true
         curl https://raw.githubusercontent.com/leanprover/lake/master/install.sh | bash
 
+    - name: Ensure LEAN_PATH includes local src/lean
+      run: |
+        echo "::add-path::${{ runner.workspace }}/src/lean" || true
+        export LEAN_PATH="${{ runner.workspace }}/src/lean:${LEAN_PATH}"
+
     - name: Build Lean project
       run: |
         lake update
+        # Ensure lake uses the correct srcDir set in lakefile.toml
         lake build
 
     - name: Run simple test runner
