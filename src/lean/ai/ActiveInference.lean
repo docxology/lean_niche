@@ -7,7 +7,7 @@ under uncertainty.
 -/
 
 import LeanNiche.Basic
-import LeanNiche.Statistics
+import LeanNiche.BasicStatistics
 import LeanNiche.FreeEnergyPrinciple
 
 namespace LeanNiche.ActiveInference

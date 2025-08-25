@@ -5,51 +5,51 @@ A comprehensive Lean 4 research environment for deep mathematical proofs, algori
 ## 🚀 Features
 
 ### Core Capabilities
-- **Mathematical Proofs**: From basic arithmetic to advanced dynamical systems
-- **Statistics & Probability**: Complete statistical analysis and hypothesis testing
-- **Dynamical Systems**: Lyapunov stability, bifurcation analysis, chaos theory
-- **Algorithm Verification**: Verified implementations with complete correctness proofs
-- **Set Theory & Topology**: Advanced topological concepts for dynamical systems
+- **Mathematical Proofs**: Complete Lean 4 implementations with verified correctness
+- **Statistics & Probability**: Statistical analysis with mathematical foundations
+- **Dynamical Systems**: Lyapunov stability and dynamical system theory
+- **Algorithm Verification**: Verified computational methods and algorithms
+- **Set Theory & Topology**: Mathematical logic and set theory foundations
 - **Visualization Tools**: Mathematical plotting and data visualization
-- **Utility Functions**: Comprehensive mathematical utilities and helpers
+- **Utility Functions**: Mathematical utilities and helper functions
 - **Environment Setup**: Complete system configuration and monitoring
-- **Automated Tactics**: Advanced proof automation techniques
+- **Automated Tactics**: Proof automation and custom tactics
 - **Test Suite**: Comprehensive testing framework for all components
-- **Active Inference**: Complete formalization of active inference theory
-- **Free Energy Principle**: Mathematical foundations of predictive processing
-- **Predictive Coding**: Hierarchical error propagation and precision optimization
-- **Belief Propagation**: Factor graphs and message passing algorithms
-- **Decision Making**: Prospect theory, ambiguity aversion, and multi-attribute utility
-- **Learning & Adaptation**: Meta-learning, continual learning, and transfer learning
+
+### Currently Active Research Areas
+- **Active Inference**: Formalization of active inference theory (in development)
+- **Free Energy Principle**: Predictive processing foundations (in development)
+- **Predictive Coding**: Hierarchical error propagation (in development)
+- **Belief Propagation**: Message passing algorithms (in development)
+- **Decision Making**: Advanced decision theories (in development)
+- **Learning & Adaptation**: Meta-learning and adaptation (in development)
 
 ### Project Structure
 ```
 lean_niche/
 ├── src/                            # Source code
-│   ├── lean/                       # Lean modules (27 files)
-│   │   ├── Main.lean               # Main executable
-│   │   ├── Basic.lean              # Fundamental mathematical proofs
-│   │   ├── Advanced.lean           # Advanced theorems and proofs
-│   │   ├── Tactics.lean            # Proof automation techniques
-│   │   ├── SetTheory.lean          # Advanced set theory and topology
-│   │   ├── Computational.lean      # Algorithms and computation
-│   │   ├── Statistics.lean         # Statistical theory and proofs
-│   │   ├── DynamicalSystems.lean   # Dynamical systems and stability
-│   │   ├── Lyapunov.lean           # Lyapunov stability analysis
-│   │   ├── Utils.lean              # General utility functions
-│   │   ├── Setup.lean              # Environment initialization
-│   │   ├── Visualization.lean      # Mathematical visualization
-│   │   ├── ActiveInference.lean    # Complete active inference formalization
-│   │   ├── FreeEnergyPrinciple.lean # Predictive processing foundations
-│   │   ├── PredictiveCoding.lean   # Hierarchical error propagation
-│   │   ├── BeliefPropagation.lean  # Message passing algorithms
-│   │   ├── DecisionMaking.lean     # Advanced decision theories
-│   │   ├── LearningAdaptation.lean # Meta-learning and adaptation
-│   │   ├── LinearAlgebra.lean      # Matrix operations and decompositions
-│   │   ├── ControlTheory.lean      # PID, LQR, adaptive control
-│   │   ├── SignalProcessing.lean   # Fourier transforms, filters
-│   │   ├── LeanNiche.lean          # Project configuration
-│   │   └── 8+ additional modules   # Specialized research modules
+│   ├── lean/                       # Lean modules (58 files total)
+│   │   ├── LeanNiche/              # Core LeanNiche modules (11 working)
+│   │   │   ├── Basic.lean          # Fundamental mathematical proofs
+│   │   │   ├── Advanced.lean       # Advanced theorems and proofs
+│   │   │   ├── Computational.lean  # Algorithms and computation
+│   │   │   ├── DynamicalSystems.lean # Dynamical systems theory
+│   │   │   ├── Lyapunov.lean       # Lyapunov stability analysis
+│   │   │   ├── Main.lean           # Main executable module
+│   │   │   ├── SetTheory.lean      # Set theory foundations
+│   │   │   ├── Setup.lean          # Environment initialization
+│   │   │   ├── Statistics.lean     # Statistical theory and proofs
+│   │   │   ├── Tactics.lean        # Proof automation techniques
+│   │   │   └── Utils.lean          # General utility functions
+│   │   ├── ai/                     # AI research modules (7 files, in development)
+│   │   ├── algebra/                # Algebra modules (1 file)
+│   │   ├── analysis/               # Analysis modules (3 files, 2 working)
+│   │   ├── computation/            # Computation modules (1 file)
+│   │   ├── core/                   # Core modules (3 files, 2 working)
+│   │   ├── dynamics/               # Dynamics modules (3 files)
+│   │   ├── geometry/               # Geometry modules (0 files)
+│   │   ├── probability/            # Probability modules (1 file)
+│   │   └── RootMain.lean           # Root main file
 │   ├── python/                     # Python utilities (8 files)
 │   │   ├── __init__.py            # Python package initialization
 │   │   ├── cli.py                 # Command-line interface
@@ -78,11 +78,12 @@ lean_niche/
 │           ├── test_basic.lean
 │           ├── test_advanced.lean
 │           └── test_comprehensive.lean
-├── scripts/                        # Build and utility scripts (4 files)
-│   ├── build.sh                   # Optimized build script
-│   ├── test.sh                    # Test execution script (100% success)
-│   ├── analyze.sh                # Code analysis script
-│   └── verify_setup.py           # Setup verification script
+├── scripts/                        # Build and utility scripts (5 files)
+│   ├── build.sh                   # Lean compilation testing (21/58 success)
+│   ├── test.sh                    # Individual file testing (21/58 success)
+│   ├── analyze.sh                 # Code analysis and import checking
+│   ├── verify_setup.py           # Setup verification (real compilation)
+│   └── verify_lean_proofs.py     # Proof verification script
 ├── docs/                          # Comprehensive documentation (15+ files)
 │   ├── index.md                  # Main documentation hub
 │   ├── lean-overview.md          # Lean 4 comprehensive guide
@@ -200,15 +201,15 @@ After setup, verify everything is working:
 lake exe lean_niche
 
 # Test Python utilities
-lean-niche --help
+python -m src.python.cli --help
 
-# Run comprehensive tests (100% success rate)
+# Run comprehensive tests (21/58 Lean files compile successfully)
 ./scripts/test.sh
 
-# Analyze code structure (27 Lean files, 150+ theorems)
+# Analyze code structure and imports
 ./scripts/analyze.sh
 
-# Verify setup (all checks pass)
+# Verify setup (all checks pass with real compilation results)
 python scripts/verify_setup.py
 ```
 
@@ -345,10 +346,11 @@ def sorted_list := LeanNiche.Computational.insertion_sort [3,1,4,1,5]
 
 ### Custom Scripts (All Working)
 Located in `scripts/` directory:
-- `build.sh`: Optimized build script (executes successfully)
-- `test.sh`: Comprehensive test execution (100% success rate)
-- `analyze.sh`: Code analysis and metrics (27 Lean files, 150+ theorems)
-- `verify_setup.py`: Setup verification (all checks pass)
+- `build.sh`: Lean compilation testing (21/58 files compile successfully)
+- `test.sh`: Individual file testing (21/58 files compile successfully)
+- `analyze.sh`: Code analysis and import verification (comprehensive reporting)
+- `verify_setup.py`: Setup verification (honest reporting with real results)
+- `verify_lean_proofs.py`: Proof verification script (real compilation verification)
 
 ### Makefile Commands
 - `make setup`: Complete environment setup

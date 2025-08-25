@@ -7,14 +7,14 @@ and time-frequency representations with complete mathematical proofs.
 -/
 
 import LeanNiche.Basic
-import LeanNiche.LinearAlgebra
-import LeanNiche.Statistics
+import LeanNiche.BasicLinearAlgebra
+import LeanNiche.BasicStatistics
 
 namespace LeanNiche.SignalProcessing
 
 open LeanNiche.Basic
-open LeanNiche.LinearAlgebra
-open LeanNiche.Statistics
+open LeanNiche.BasicLinearAlgebra
+open LeanNiche.BasicStatistics
 
 /-- Discrete-time signal -/
 def Signal := List Nat

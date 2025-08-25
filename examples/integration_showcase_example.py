@@ -36,10 +36,16 @@ try:
     from src.python.core.orchestrator_base import LeanNicheOrchestratorBase
     # Alias for compatibility with existing code
     DynamicalSystemsVisualizer = None
-except Exception as e:
-    print(f"❌ Import error: {e}")
-    print("Please run from the LeanNiche project root after setup")
-    raise
+except ImportError:
+    try:
+        # Fall back to older import path if available
+        from python.core.orchestrator_base import LeanNicheOrchestratorBase
+        # Alias for compatibility with existing code
+        DynamicalSystemsVisualizer = None
+    except Exception as e:
+        print(f"❌ Import error: {e}")
+        print("Please run from the LeanNiche project root after setup")
+        raise
 
 class IntegrationShowcaseOrchestrator(LeanNicheOrchestratorBase):
     """Comprehensive orchestrator demonstrating LeanNiche integration capabilities (uses LeanNicheOrchestratorBase)."""
@@ -246,9 +252,14 @@ end IntegratedShowcase
                 # Export integrated lean code
                 self.lean_runner.export_lean_code(integrated_lean_code, self.proofs_dir / "integrated_showcase.lean")
 
-                # Save categorized proof output files
-                saved_outputs = self.lean_runner.generate_proof_output(verification_result, self.proofs_dir, prefix="integrated_showcase")
-                print(f"📊 Proof outcomes saved: {', '.join(p.name for p in saved_outputs.values())}")
+                # HONEST: Save categorized proof output files only if verification succeeded
+                verification_status = verification_result.get('result', {}).get('verification_status', {})
+                if verification_status.get('compilation_successful', False) and verification_status.get('total_proofs', 0) > 0:
+                    saved_outputs = self.lean_runner.generate_proof_output(verification_result, self.proofs_dir, prefix="integrated_showcase")
+                    print(f"📊 HONEST: Real proof outcomes saved: {', '.join(p.name for p in saved_outputs.values())}")
+                else:
+                    saved_outputs = {}
+                    print(f"⚠️  HONEST VERIFICATION: No real proofs - {verification_status.get('total_proofs', 0)} verified")
             else:
                 print(f"⚠️ Lean verification warning: {verification_result.get('error', 'Unknown')}")
         except Exception as e:
@@ -270,7 +281,11 @@ end IntegratedArtifacts
                 af.write(art_code)
 
             art_res = self.lean_runner.run_lean_code(art_code, imports=['LeanNiche.Statistics'])
-            art_saved = self.lean_runner.generate_proof_output(art_res, self.proofs_dir, prefix='integrated_artifacts')
+            # HONEST: Only save if verification succeeded
+            art_saved = {}
+            verification_status = art_res.get('result', {}).get('verification_status', {})
+            if verification_status.get('compilation_successful', False) and verification_status.get('total_proofs', 0) > 0:
+                art_saved = self.lean_runner.generate_proof_output(art_res, self.proofs_dir, prefix='integrated_artifacts')
             if art_saved:
                 print("📂 Additional integrated artifacts saved:")
                 for k, p in art_saved.items():

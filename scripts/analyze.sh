@@ -94,6 +94,85 @@ analyze_theorems() {
     print_status "Total formal objects: $((total_theorems + total_lemmas + total_defs))"
 }
 
+# Analyze Lean module structure and imports
+analyze_lean_structure() {
+    print_header "Lean Module Structure Analysis"
+
+    print_status "Analyzing Lean module hierarchy..."
+
+    # Check for proper module structure
+    if [ ! -f "src/lean/LeanNiche/Basic.lean" ]; then
+        print_error "Missing core LeanNiche module: Basic.lean"
+        return 1
+    fi
+
+    # Analyze imports in Lean files
+    print_status "Checking import dependencies..."
+    local import_errors=0
+
+    for file in $(find src -name "*.lean" -type f); do
+        # Extract imports
+        local imports=$(grep "^import " "$file" | sed 's/import //g' || true)
+
+        if [ -n "$imports" ]; then
+            print_status "File: $file"
+            echo "$imports" | while read -r import; do
+                # Check if imported module exists
+                local module_path="src/lean/${import}.lean"
+                if [ ! -f "$module_path" ]; then
+                    print_warning "  Missing module: $import (expected: $module_path)"
+                    import_errors=$((import_errors + 1))
+                else
+                    print_status "  ✓ $import"
+                fi
+            done
+        fi
+    done
+
+    if [ $import_errors -gt 0 ]; then
+        print_error "Found $import_errors import errors - Lean compilation will fail"
+        return 1
+    else
+        print_success "All Lean imports resolve correctly"
+    fi
+
+    return 0
+}
+
+# Verify Lean compilation
+verify_lean_compilation() {
+    print_header "Lean Compilation Verification"
+
+    print_status "Testing Lean compilation for all .lean files..."
+
+    local compile_errors=0
+    local total_files=0
+
+    for file in $(find src -name "*.lean" -type f); do
+        total_files=$((total_files + 1))
+        print_status "Compiling: $file"
+
+        if lean "$file" 2>&1 | grep -q "error:"; then
+            print_error "  ✗ Compilation failed for $file"
+            compile_errors=$((compile_errors + 1))
+        else
+            print_success "  ✓ Compilation successful for $file"
+        fi
+    done
+
+    print_header "Compilation Summary"
+    print_status "Total files: $total_files"
+    print_status "Compilation errors: $compile_errors"
+
+    if [ $compile_errors -gt 0 ]; then
+        print_error "Lean compilation verification failed - fix module imports first"
+        return 1
+    else
+        print_success "All Lean files compile successfully"
+        return 0
+    fi
+}
+
 # Analyze dependencies and imports
 analyze_dependencies() {
     print_header "Dependency Analysis"
@@ -240,16 +319,22 @@ main() {
         "recommendations")
             generate_recommendations
             ;;
+        "lean")
+            analyze_lean_structure
+            verify_lean_compilation
+            ;;
         "all")
             analyze_structure
+            analyze_lean_structure
             analyze_theorems
+            verify_lean_compilation
             analyze_dependencies
             analyze_complexity
             analyze_documentation
             generate_recommendations
             ;;
         *)
-            print_error "Usage: $0 [structure|theorems|dependencies|complexity|documentation|recommendations|all]"
+            print_error "Usage: $0 [structure|theorems|dependencies|complexity|documentation|recommendations|lean|all]"
             exit 1
             ;;
     esac

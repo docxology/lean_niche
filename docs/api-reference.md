@@ -305,6 +305,195 @@ def confidence_interval (data : List ℝ) (confidence : ℝ) : (ℝ × ℝ) :=
   (μ - z * se, μ + z * se)
 ```
 
+### Key Theorems in Statistics Module
+
+#### Central Limit Theorem
+```lean
+/-- Central Limit Theorem -/
+theorem central_limit_theorem (X : Nat → Nat) (n : Nat) :
+  n > 30 →  -- For large n
+  let sample_mean := (List.range n).map X |>.mean
+  let sample_std := (List.range n).map X |>.std
+  let standardized := (sample_mean - population_mean) / (sample_std / sqrt n)
+  standardized is approximately normally distributed := by
+  -- Proof using characteristic functions and moment generating functions
+  sorry
+```
+
+#### Law of Large Numbers
+```lean
+/-- Weak Law of Large Numbers -/
+theorem weak_law_of_large_numbers (X : Nat → Nat) (μ : Nat) :
+  independent_and_identically_distributed X →
+  ∀ ε > 0, ∃ N, ∀ n ≥ N,
+    |sample_mean X n - μ| < ε := by
+  -- Proof using Chebyshev's inequality
+  sorry
+
+/-- Strong Law of Large Numbers -/
+theorem strong_law_of_large_numbers (X : Nat → Nat) (μ : Nat) :
+  independent_and_identically_distributed X →
+  probability (sample_mean X n → μ as n → ∞) = 1 := by
+  -- Proof using Borel-Cantelli lemma
+  sorry
+```
+
+#### Bayesian Statistics
+```lean
+/-- Bayes' Theorem -/
+theorem bayes_theorem (P : ProbabilityMeasure) (A B : Set) :
+  P(B) > 0 →
+  P(A|B) = P(B|A) * P(A) / P(B) := by
+  -- Proof using conditional probability definition
+  sorry
+
+/-- Bayesian Inference Update -/
+theorem bayesian_update (prior : Distribution) (likelihood : Function) (data : List Real) :
+  let posterior := prior * likelihood data / marginal_likelihood
+  posterior is proper probability distribution := by
+  -- Proof using probability axioms
+  sorry
+```
+
+#### Hypothesis Testing
+```lean
+/-- t-test for mean comparison -/
+theorem t_test_validity (sample1 sample2 : List Real) :
+  normal_distributed sample1 ∧ normal_distributed sample2 →
+  let t_statistic := (mean1 - mean2) / sqrt(var1/n1 + var2/n2)
+  let df := degrees_of_freedom n1 n2
+  t_statistic follows t_distribution df := by
+  -- Proof using properties of normal distribution
+  sorry
+
+/-- Chi-square goodness of fit -/
+theorem chi_square_goodness_of_fit (observed expected : List Nat) :
+  expected.sum > 0 →
+  let chi_stat := ∑ (obs - exp)^2 / exp
+  chi_stat approximately follows chi_square_distribution (k-1) := by
+  -- Proof using asymptotic theory
+      sorry
+```
+
+## 🎛️ ControlTheory.lean Module
+
+### System Definitions
+```lean
+/-- Linear Time-Invariant System -/
+structure LTI_System where
+  state_matrix : Matrix 2 2    -- A matrix
+  input_matrix : Matrix 2 1    -- B matrix
+  output_matrix : Matrix 1 2   -- C matrix
+  feedthrough : Matrix 1 1     -- D matrix
+
+/-- PID Controller Structure -/
+structure PID_Controller where
+  kp : Nat  -- Proportional gain
+  ki : Nat  -- Integral gain
+  kd : Nat  -- Derivative gain
+  integral_state : Nat
+  prev_error : Nat
+
+/-- State Feedback Controller -/
+def StateFeedback (K : Vector 2) (x : Vector 2) : Nat :=
+  sum_range (λ i => K i * x i) 0 2
+
+/-- Linear Quadratic Regulator -/
+def LQR_Controller (system : LTI_System) (Q : Matrix 2 2) (R : Nat) : Vector 2 :=
+  λ i => 100  -- Simplified LQR gain (would solve Riccati equation)
+
+/-- PID Control Law -/
+def pid_control (controller : PID_Controller) (error : Nat) (dt : Nat) : (PID_Controller × Nat) :=
+  let proportional := (controller.kp * error) / 1000
+  let integral := controller.integral_state + (controller.ki * error * dt) / 1000
+  let derivative := (controller.kd * (error - controller.prev_error)) / dt
+  let output := proportional + integral + derivative
+
+  let new_controller := { controller with
+    integral_state := integral
+    prev_error := error
+  }
+  (new_controller, output)
+```
+
+### Control Theory Theorems
+
+#### PID Controller Stability
+```lean
+/-- PID Controller Stability Theorem -/
+theorem pid_stability (controller : PID_Controller) (plant : LTI_System) :
+  Under certain conditions, PID control stabilizes the system
+  ∀ error : Nat,
+    let (_, control_output) := pid_control controller error 100
+    control_output ≥ 0 := by  -- Simplified stability condition
+  intro error
+  -- PID control always produces bounded output for bounded input
+  sorry
+```
+
+#### Controllability and Stabilizability
+```lean
+/-- Controllability Implies Stabilizability -/
+theorem controllability_implies_stabilizability (system : LTI_System) :
+  controllable system →
+  ∃ K : Vector 2,
+    ∀ x : Vector 2,
+      let closed_loop := λ y => matrix_vector_mul system.state_matrix y - StateFeedback K y
+      lyapunov_stable (λ y => vector_norm y) closed_loop := by
+  intro h_controllable
+  -- Construct a stabilizing feedback gain
+  sorry
+```
+
+#### Linear Quadratic Regulator
+```lean
+/-- LQR Optimality Theorem -/
+theorem lqr_optimality (system : LTI_System) (Q : Matrix 2 2) (R : Nat) :
+  let K := LQR_Controller system Q R
+  ∀ x : Vector 2,
+    StateFeedback K x minimizes
+    ∫₀^∞ (xᵀQ x + R * u²) dt := by
+  -- Proof using Riccati equation and dynamic programming
+  sorry
+```
+
+#### Robust Control Theory
+```lean
+/-- Small Gain Theorem -/
+theorem small_gain_theorem (G1 G2 : Nat → Nat) (gamma : Nat) :
+  ||G1||_∞ < gamma ∧ ||G2||_∞ < 1/gamma →
+  feedback_system_stable (G1, G2) := by
+  -- Proof using operator norms and contraction mapping
+  sorry
+
+/-- Circle Criterion -/
+theorem circle_criterion (A B C : Matrix 2 2) :
+  let system := state_space_system A B C
+  nyquist_plot_intersects_circle →
+  system is absolutely stable := by
+  -- Proof using complex analysis and Nyquist criterion
+  sorry
+```
+
+#### Adaptive Control
+```lean
+/-- Adaptive Control Convergence -/
+theorem adaptive_control_convergence (plant : LTI_System) (reference : Trajectory) :
+  let adaptive_law := gradient_descent parameter_error
+  parameter_estimates converge to true_values ∧
+  tracking_error → 0 := by
+  -- Proof using Lyapunov stability and parameter estimation
+  sorry
+
+/-- MRAC Stability -/
+theorem mrac_stability (plant : LTI_System) (reference_model : LTI_System) :
+  matching_conditions_satisfied →
+  ∃ adaptive_law such that
+  closed_loop_stable ∧ tracking_error_bounded := by
+  -- Proof using model reference adaptive control theory
+  sorry
+```
+
 ## 🔄 DynamicalSystems.lean Module
 
 ### System Definitions
@@ -365,6 +554,73 @@ def dense_periodic_points {S : Type} [TopologicalSpace S]
   (f : DiscreteTimeSystem S) : Prop :=
   ∀ U : Set S, U.Nonempty → U.Open →
   ∃ x : S, ∃ n : ℕ, n > 0 ∧ periodic_point f x n ∧ x ∈ U
+```
+
+### Key Theorems in Dynamical Systems Module
+
+#### Lyapunov Stability Theorem
+```lean
+/-- Lyapunov Stability Theorem -/
+theorem lyapunov_stability {State : Type} (V : State → Nat) (f : State → State) :
+  lyapunov_stable V f →
+  ∀ x : State, ∀ n : Nat,
+    V (trajectory f x n) ≤ V x := by
+  intro h_lyap x n
+  -- This follows from the Lyapunov function property
+  sorry
+```
+
+#### Chaos Detection via Sensitive Dependence
+```lean
+/-- Sensitive Dependence Implies Chaos -/
+theorem sensitive_dependence_implies_chaos {State : Type} [MetricSpace State]
+  (f : State → State) (x : State) :
+  sensitive_dependence f x →
+  ∀ y : State, y ≠ x → ∃ n : Nat,
+    distance (trajectory f x n) (trajectory f y n) ≥ 1 := by
+  -- Proof using metric space properties
+  sorry
+```
+
+#### Periodic Orbit Stability
+```lean
+/-- Periodic Orbit Stability -/
+theorem periodic_orbit_stability (f : State → State) (period : Nat) :
+  let orbit := periodic_orbit f period
+  stable orbit ↔ ∀ x ∈ orbit,
+    |derivative f x| < 1 := by
+  -- Proof using Floquet multipliers
+  sorry
+```
+
+#### Topological Transitivity
+```lean
+/-- Topological Transitivity Theorem -/
+theorem topological_transitivity_chaos (f : State → State) :
+  topological_transitive f →
+  ∀ U V : Set State, U.Nonempty → V.Nonempty → U.Open → V.Open →
+  ∃ n : Nat, trajectory f · n '' U ∩ V ≠ ∅ := by
+  -- Proof using dense orbits in the system
+  sorry
+```
+
+#### Ergodic Theory
+```lean
+/-- Birkhoff Ergodic Theorem -/
+theorem birkhoff_ergodic_theorem (f : State → State) (g : State → Real) :
+  ergodic f ∧ integrable g →
+  let time_average := (1/n) * ∑_{k=0}^{n-1} g(trajectory f x k)
+  time_average → space_average g almost_everywhere := by
+  -- Proof using measure theory and ergodicity
+  sorry
+
+/-- Poincaré Recurrence -/
+theorem poincare_recurrence (f : State → State) :
+  conservative f →  -- preserves measure
+  ∀ U : Set State, U.Nonempty → U.Open →
+  ∀ x ∈ U, ∃ n : Nat, trajectory f x n ∈ U := by
+  -- Proof using conservation of measure
+  sorry
 ```
 
 ## ⚖️ Lyapunov.lean Module
@@ -502,6 +758,252 @@ class MathematicalVisualizer:
                               plot_type: str, title: str,
                               save_path: Optional[str] = None) -> go.Figure:
         """Interactive plots using Plotly"""
+```
+
+## 🧠 AI & Machine Learning Modules
+
+### FreeEnergyPrinciple.lean Module
+
+#### Core Definitions
+```lean
+/-- Variational Free Energy -/
+def variational_free_energy (system : DynamicalSystem) (observations : List Real) : Real :=
+  let prior_expectations := expected_states system
+  let sensory_predictions := generative_model system prior_expectations
+  let prediction_errors := observations - sensory_predictions
+  let complexity := model_complexity system
+  complexity - accuracy prediction_errors
+
+/-- Active Inference Agent -/
+structure ActiveInferenceAgent where
+  generative_model : State → List Real → List Real
+  prior_beliefs : Distribution State
+  action_policies : List (State → Action)
+  precision_parameters : Real
+
+/-- Expected Free Energy -/
+def expected_free_energy (agent : ActiveInferenceAgent) (policy : State → Action) : Real :=
+  let extrinsic_value := policy_value policy
+  let epistemic_value := information_gain policy
+  let risk := policy_risk policy
+  risk - extrinsic_value - epistemic_value
+```
+
+#### Key Theorems
+```lean
+/-- Free Energy Principle -/
+theorem free_energy_principle (system : DynamicalSystem) (observations : List Real) :
+  let free_energy := variational_free_energy system observations
+  free_energy ≥ 0 ∧
+  minimizing free_energy maximizes accuracy := by
+  -- Proof using information theory and variational inference
+  sorry
+
+/-- Active Inference Optimality -/
+theorem active_inference_optimality (agent : ActiveInferenceAgent) :
+  let optimal_policy := argmin_policy expected_free_energy
+  optimal_policy minimizes long_term_free_energy := by
+  -- Proof using reinforcement learning and information theory
+  sorry
+
+/-- Precision Optimization -/
+theorem precision_optimization (system : DynamicalSystem) (precision : Real) :
+  optimal_precision balances
+  exploration vs exploitation := by
+  -- Proof using Bayesian decision theory
+  sorry
+```
+
+### BeliefPropagation.lean Module
+
+#### Core Definitions
+```lean
+/-- Factor Graph -/
+structure FactorGraph where
+  variables : List Variable
+  factors : List Factor
+  edges : List (Variable × Factor)
+
+def FactorGraph.messages : List Message :=
+  λ edge => belief_propagation_update edge
+
+/-- Belief Propagation Algorithm -/
+def belief_propagation (graph : FactorGraph) (max_iterations : Nat) : List (Variable × Belief) :=
+  let initial_beliefs := uniform_beliefs graph.variables
+  iterate_updates initial_beliefs max_iterations
+
+/-- Marginal Computation -/
+def compute_marginal (graph : FactorGraph) (variable : Variable) : Belief :=
+  let incoming_messages := collect_messages graph variable
+  normalize_belief (product_messages incoming_messages)
+```
+
+#### Key Theorems
+```lean
+/-- Belief Propagation Convergence -/
+theorem belief_propagation_convergence (graph : FactorGraph) :
+  tree_structured graph →
+  belief_propagation converges_to exact_marginals := by
+  -- Proof using message passing on trees
+  sorry
+
+/-- Sum-Product Algorithm Correctness -/
+theorem sum_product_correctness (graph : FactorGraph) :
+  acyclic graph →
+  sum_product_algorithm computes exact_marginals := by
+  -- Proof using distributive law over factor graphs
+  sorry
+
+/-- Loopy Belief Propagation -/
+theorem loopy_bp_convergence (graph : FactorGraph) :
+  let fixed_point := bp_fixed_point graph
+  under_damping_conditions →
+  loopy_bp converges_to fixed_point := by
+  -- Proof using contraction mapping theorem
+  sorry
+```
+
+### LearningAdaptation.lean Module
+
+#### Core Definitions
+```lean
+/-- Meta-Learning Agent -/
+structure MetaLearningAgent where
+  base_learner : Learner
+  meta_learner : MetaLearner
+  task_distribution : Distribution Task
+  adaptation_strategy : AdaptationRule
+
+/-- Continual Learning -/
+def continual_learning (agent : MetaLearningAgent) (task_stream : Stream Task) : Stream Performance :=
+  let adapted_agent := adapt_to_task_stream agent task_stream
+  evaluate_performance adapted_agent task_stream
+
+/-- Transfer Learning -/
+def transfer_learning (source_task : Task) (target_task : Task) : Learner :=
+  let source_knowledge := extract_knowledge source_task
+  let adapted_learner := apply_knowledge source_knowledge target_task
+  adapted_learner
+```
+
+#### Key Theorems
+```lean
+/-- Meta-Learning Convergence -/
+theorem meta_learning_convergence (agent : MetaLearningAgent) :
+  let meta_objective := expected_performance_over_tasks
+  gradient_descent_on_meta_objective →
+  meta_loss → optimal_meta_parameters := by
+  -- Proof using online learning theory
+  sorry
+
+/-- Catastrophic Forgetting Prevention -/
+theorem catastrophic_forgetting_prevention (agent : MetaLearningAgent) :
+  with_regularization →
+  ∀ previous_tasks : List Task,
+    performance_on_previous_tasks maintained := by
+  -- Proof using regularization theory
+  sorry
+
+/-- Transfer Learning Bounds -/
+theorem transfer_learning_bounds (source_task target_task : Task) :
+  let similarity := task_similarity source_task target_task
+  transfer_gain ≤ f(similarity, source_performance) := by
+  -- Proof using domain adaptation theory
+  sorry
+```
+
+### SignalProcessing.lean Module
+
+#### Core Definitions
+```lean
+/-- Fourier Transform -/
+def discrete_fourier_transform (signal : List Complex) : List Complex :=
+  λ k => sum_range (λ n => signal[n] * exp(-2*π*i*n*k/N)) 0 N
+  where N := signal.length
+
+/-- Digital Filter -/
+structure DigitalFilter where
+  coefficients : List Real
+  filter_type : FilterType
+  cutoff_frequency : Real
+
+def apply_filter (filter : DigitalFilter) (signal : List Real) : List Real :=
+  convolve filter.coefficients signal
+
+/-- Wavelet Transform -/
+def wavelet_transform (signal : List Real) (wavelet : Wavelet) : List (Scale × Time × Coefficient) :=
+  λ scale, time => correlate signal (scaled_wavelet wavelet scale time)
+```
+
+#### Key Theorems
+```lean
+/-- Fourier Inversion Theorem -/
+theorem fourier_inversion (signal : List Complex) :
+  let transformed := discrete_fourier_transform signal
+  let reconstructed := inverse_fourier_transform transformed
+  reconstructed = signal := by
+  -- Proof using properties of complex exponentials
+  sorry
+
+/-- Sampling Theorem -/
+theorem sampling_theorem (signal : ContinuousSignal) (sampling_rate : Real) :
+  sampling_rate > 2 * signal.bandwidth →
+  signal perfectly_reconstructible_from_samples := by
+  -- Proof using Nyquist criterion
+  sorry
+
+/-- Convolution Theorem -/
+theorem convolution_theorem (signal1 signal2 : List Complex) :
+  fourier_transform (convolve signal1 signal2) =
+  pointwise_multiply (fourier_transform signal1) (fourier_transform signal2) := by
+  -- Proof using Fourier transform properties
+  sorry
+```
+
+### DecisionMaking.lean Module
+
+#### Core Definitions
+```lean
+/-- Utility Function -/
+def utility_function (outcome : Outcome) : Real :=
+  outcome.value  -- Simplified linear utility
+
+/-- Prospect Theory Value -/
+def prospect_theory_value (outcome : Outcome) (reference_point : Real) : Real :=
+  let deviation := outcome.value - reference_point
+  if deviation ≥ 0 then
+    deviation^α  -- Risk aversion for gains
+  else
+    -γ * (-deviation)^β  -- Loss aversion
+
+/-- Expected Utility -/
+def expected_utility (outcomes : List (Real × Outcome)) : Real :=
+  sum_list (λ (prob, outcome) => prob * utility_function outcome) outcomes
+```
+
+#### Key Theorems
+```lean
+/-- Expected Utility Maximization -/
+theorem expected_utility_maximization (choices : List Choice) :
+  ∃ optimal_choice : Choice,
+  ∀ other_choice : Choice,
+    expected_utility optimal_choice ≥ expected_utility other_choice := by
+  -- Proof using optimization theory
+  sorry
+
+/-- Prospect Theory Preferences -/
+theorem prospect_theory_rationality (agent : ProspectTheoryAgent) :
+  let preferences := agent.preferences
+  preferences satisfy prospect_theory_properties := by
+  -- Proof using behavioral economics
+  sorry
+
+/-- Risk Aversion -/
+theorem risk_aversion_characterization (agent : DecisionAgent) :
+  let risk_premium := certainty_equivalent - expected_value
+  risk_premium > 0 ↔ agent is_risk_averse := by
+  -- Proof using utility theory
+  sorry
 ```
 
 ---

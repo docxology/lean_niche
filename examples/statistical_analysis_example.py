@@ -685,9 +685,24 @@ def main():
 
             print(f"🧾 Generated domain Lean file: {lean_file}")
 
-            # Execute Lean on the generated file and collect proof outputs
-            run_result = orchestrator.lean_runner.run_lean_code(lean_code, imports=['LeanNiche.Basic', 'Statistics'])
-            saved = orchestrator.lean_runner.generate_proof_output(run_result, proofs_dir, prefix="statistical_analysis")
+            # Execute HONEST Lean verification - no fake results
+            from scripts.verify_lean_proofs import run_lean_verification
+
+            lean_file_path = str(lean_file)
+            run_result = run_lean_verification(lean_file_path)
+
+            # Only save results if verification actually succeeded
+            saved = {}
+            if run_result['success']:
+                saved = orchestrator.lean_runner.generate_proof_output(run_result, proofs_dir, prefix="statistical_analysis")
+            else:
+                print(f"⚠️  HONEST VERIFICATION: No proofs verified - {run_result.get('error', 'compilation failed')}")
+                # Save the honest failure result
+                import json
+                failure_file = proofs_dir / "statistical_analysis_verification_failure.json"
+                with open(failure_file, 'w') as f:
+                    json.dump(run_result, f, indent=2)
+                saved = {'failure_report': failure_file}
             if saved:
                 print("📂 Generated and saved Lean proof artifacts:")
                 for k, p in saved.items():
@@ -700,16 +715,25 @@ def main():
             proofs_dir = orchestrator.proofs_dir
             proofs_dir.mkdir(parents=True, exist_ok=True)
 
-            # Build a minimal results dict from extracted proof outcomes to generate files
-            proof_results = {
-                'success': True,
-                'result': orchestrator.proof_outcomes or {},
-                'stdout': '',
-                'stderr': '',
-                'execution_time': final_results.get('comprehensive_results', {}).get('execution_time', 0)
-            }
-
-            saved = orchestrator.lean_runner.generate_proof_output(proof_results, proofs_dir, prefix="statistical_analysis")
+            # HONEST: Don't generate fake proof results
+            # Only report real verification outcomes
+            saved = {}
+            if orchestrator.proof_outcomes:
+                # Check if there were any actual verified proofs
+                verification_status = orchestrator.proof_outcomes.get('verification_status', {})
+                if verification_status.get('compilation_successful', False) and verification_status.get('total_proofs', 0) > 0:
+                    proof_results = {
+                        'success': True,
+                        'result': orchestrator.proof_outcomes,
+                        'stdout': '',
+                        'stderr': '',
+                        'execution_time': final_results.get('comprehensive_results', {}).get('execution_time', 0)
+                    }
+                    saved = orchestrator.lean_runner.generate_proof_output(proof_results, proofs_dir, prefix="statistical_analysis")
+                else:
+                    print(f"⚠️  HONEST VERIFICATION: No real proofs to report")
+            else:
+                print(f"⚠️  HONEST VERIFICATION: No proof outcomes available")
             if saved:
                 print("📂 Proof artifacts ensured under:")
                 for k, p in saved.items():

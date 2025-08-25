@@ -6,13 +6,13 @@ propagation, precision-weighted prediction errors, and bidirectional message pas
 -/
 
 import LeanNiche.Basic
-import LeanNiche.Statistics
-import LeanNiche.LinearAlgebra
+import LeanNiche.BasicStatistics
+import LeanNiche.BasicLinearAlgebra
 
 namespace LeanNiche.PredictiveCoding
 
 open LeanNiche.Basic
-open LeanNiche.Statistics
+open LeanNiche.BasicStatistics
 open LeanNiche.LinearAlgebra
 
 /-- Hierarchical predictive coding level -/

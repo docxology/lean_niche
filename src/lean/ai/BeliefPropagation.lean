@@ -6,13 +6,13 @@ in graphical models, including sum-product and max-product algorithms.
 -/
 
 import LeanNiche.Basic
-import LeanNiche.Statistics
-import LeanNiche.LinearAlgebra
+import LeanNiche.BasicStatistics
+import LeanNiche.BasicLinearAlgebra
 
 namespace LeanNiche.BeliefPropagation
 
 open LeanNiche.Basic
-open LeanNiche.Statistics
+open LeanNiche.BasicStatistics
 open LeanNiche.LinearAlgebra
 
 /-- Factor graph representation -/

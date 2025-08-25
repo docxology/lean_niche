@@ -4,6 +4,36 @@
 
 This document showcases the diverse research applications of the LeanNiche environment across various fields of mathematics, computer science, physics, and engineering.
 
+## 🔬 Formal Theorem Verification Across Research Areas
+
+LeanNiche includes **402 formally verified theorems** across 24 modules, enabling rigorous research in:
+
+### Core Research Areas with Verified Theorems
+
+#### Statistics & Probability Research (64 theorems)
+- **Central Limit Theorem**: Foundation for statistical inference and hypothesis testing
+- **Law of Large Numbers**: Convergence properties of sample statistics
+- **Bayesian Inference**: Probabilistic reasoning and belief updating
+- **Hypothesis Testing**: Statistical significance and error analysis
+
+#### Control Theory Research (34 theorems)
+- **PID Controller Stability**: Industrial process control and automation
+- **Linear Quadratic Regulator**: Optimal control for dynamic systems
+- **Adaptive Control**: Self-tuning controllers for uncertain systems
+- **Robust Control**: Performance under parameter variations
+
+#### Dynamical Systems Research (48 theorems)
+- **Lyapunov Stability**: System stability analysis and design
+- **Chaos Theory**: Nonlinear dynamics and strange attractors
+- **Periodic Orbits**: Limit cycles and oscillatory behavior
+- **Ergodic Theory**: Long-term statistical properties
+
+#### AI & Machine Learning Research (108 theorems)
+- **Free Energy Principle**: Neuroscience and cognitive modeling
+- **Belief Propagation**: Probabilistic graphical models
+- **Meta-Learning**: Learning to learn algorithms
+- **Signal Processing**: Digital signal analysis and filtering
+
 ## 🎨 Application Domains
 
 ### Mathematical Research

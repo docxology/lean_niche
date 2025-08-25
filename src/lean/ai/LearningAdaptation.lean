@@ -6,13 +6,13 @@ including meta-learning, continual learning, and adaptation to changing environm
 -/
 
 import LeanNiche.Basic
-import LeanNiche.Statistics
-import LeanNiche.LinearAlgebra
+import LeanNiche.BasicStatistics
+import LeanNiche.BasicLinearAlgebra
 
 namespace LeanNiche.LearningAdaptation
 
 open LeanNiche.Basic
-open LeanNiche.Statistics
+open LeanNiche.BasicStatistics
 open LeanNiche.LinearAlgebra
 
 /-- Meta-learning structure -/

@@ -36,9 +36,5 @@ theorem add_comm (m n : Nat) : m + n = n + m := by
 
 end LeanNiche.Basic
 
-/- Move core.Basic into LeanNiche namespace by copying its contents here.
-   This file will be the canonical location for the Basic module. */
-import core.Basic
-
-
+/- This file is the canonical location for the Basic module. -/
 

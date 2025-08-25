@@ -7,13 +7,13 @@ and machine learning.
 -/
 
 import LeanNiche.Basic
-import LeanNiche.Statistics
-import LeanNiche.LinearAlgebra
+import LeanNiche.BasicStatistics
+import LeanNiche.BasicLinearAlgebra
 
 namespace LeanNiche.FreeEnergyPrinciple
 
 open LeanNiche.Basic
-open LeanNiche.Statistics
+open LeanNiche.BasicStatistics
 open LeanNiche.LinearAlgebra
 
 /-- Generative model (probability distribution over states and observations) -/

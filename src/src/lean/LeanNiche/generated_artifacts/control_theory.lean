@@ -1,9 +1,15 @@
+namespace LeanNiche.generated_artifacts.control_theory
 
 import LeanNiche.ControlTheory
 import LeanNiche.Lyapunov
 import LeanNiche.LinearAlgebra
+import LeanNiche.generated_artifacts.control_theory_artifacts
 
 namespace ControlTheoryAnalysis
+
+/-- Reference generated artifact definitions to ensure they're processed -/
+def pid_controller_count := LeanNiche.generated_artifacts.control_theory_artifacts.num_pid_controllers
+theorem pid_controller_count_eq : pid_controller_count = 3 := LeanNiche.generated_artifacts.control_theory_artifacts.num_pid_controllers_eq
 
 /-- Transfer function representation -/
 structure TransferFunction where
@@ -108,3 +114,5 @@ def root_locus (plant : TransferFunction) (k_range : List ℝ) : List (ℝ × Li
   )
 
 end ControlTheoryAnalysis
+
+end LeanNiche.generated_artifacts.control_theory

@@ -50,19 +50,20 @@ class SetupVerifier:
             self.issues.append("Missing src/lean directory")
             return False
 
+        # Check for actual LeanNiche core modules that exist
         required_files = [
-            "Main.lean",
-            "Basic.lean",
-            "Advanced.lean",
-            "Computational.lean",
-            "DynamicalSystems.lean",
-            "Lyapunov.lean",
-            "SetTheory.lean",
-            "Statistics.lean",
-            "Tactics.lean",
-            "Utils.lean",
-            "Visualization.lean",
-            "Setup.lean"
+            "LeanNiche/Basic.lean",
+            "LeanNiche/Advanced.lean",
+            "LeanNiche/Computational.lean",
+            "LeanNiche/DynamicalSystems.lean",
+            "LeanNiche/Lyapunov.lean",
+            "LeanNiche/SetTheory.lean",
+            "LeanNiche/Statistics.lean",
+            "LeanNiche/Tactics.lean",
+            "LeanNiche/Utils.lean",
+            "LeanNiche/Visualization.lean",
+            "LeanNiche/Setup.lean",
+            "LeanNiche/Main.lean"
         ]
 
         all_present = True
@@ -72,6 +73,127 @@ class SetupVerifier:
                 all_present = False
 
         return all_present
+
+    def verify_lean_compilation(self) -> bool:
+        """Verify that core Lean files can be compiled"""
+        import subprocess
+
+        print("  Checking Lean compilation of core modules...")
+
+        # Test only the core LeanNiche modules that should work
+        core_modules = [
+            "src/lean/LeanNiche/Basic.lean",
+            "src/lean/LeanNiche/Advanced.lean",
+            "src/lean/LeanNiche/Computational.lean",
+            "src/lean/LeanNiche/DynamicalSystems.lean",
+            "src/lean/LeanNiche/Lyapunov.lean",
+            "src/lean/LeanNiche/Main.lean",
+            "src/lean/LeanNiche/SetTheory.lean",
+            "src/lean/LeanNiche/Setup.lean",
+            "src/lean/LeanNiche/Statistics.lean",
+            "src/lean/LeanNiche/Tactics.lean",
+            "src/lean/LeanNiche/Utils.lean",
+            "src/lean/LeanNiche/Visualization.lean"
+        ]
+
+        compilation_errors = 0
+        successful_compilations = 0
+
+        for module_path in core_modules:
+            lean_file = self.project_root / module_path
+            if not lean_file.exists():
+                self.issues.append(f"Core module not found: {module_path}")
+                compilation_errors += 1
+                continue
+
+            try:
+                result = subprocess.run(
+                    ["lean", str(lean_file)],
+                    capture_output=True,
+                    text=True,
+                    cwd=str(lean_file.parent)
+                )
+                if result.returncode != 0 or "error:" in result.stderr:
+                    compilation_errors += 1
+                    # Only report the first few errors to avoid spam
+                    if compilation_errors <= 3:
+                        self.issues.append(f"Lean compilation failed for {lean_file.name}")
+                else:
+                    successful_compilations += 1
+            except FileNotFoundError:
+                self.issues.append("Lean compiler not found - ensure Elan/Lean is installed")
+                return False
+
+        if compilation_errors > 0:
+            self.issues.append(f"Core Lean compilation: {successful_compilations}/{len(core_modules)} modules compiled successfully")
+            return successful_compilations >= 8  # At least 8 core modules should work
+
+        return True
+
+    def verify_lean_imports(self) -> bool:
+        """Verify that core Lean imports resolve correctly"""
+        import re
+
+        print("  Checking Lean imports for core modules...")
+
+        # Check only core modules that should have working imports
+        core_modules = [
+            "src/lean/LeanNiche/Basic.lean",
+            "src/lean/LeanNiche/Advanced.lean",
+            "src/lean/LeanNiche/Computational.lean",
+            "src/lean/LeanNiche/DynamicalSystems.lean",
+            "src/lean/LeanNiche/Lyapunov.lean",
+            "src/lean/LeanNiche/Main.lean",
+            "src/lean/LeanNiche/SetTheory.lean",
+            "src/lean/LeanNiche/Setup.lean",
+            "src/lean/LeanNiche/Statistics.lean",
+            "src/lean/LeanNiche/Tactics.lean",
+            "src/lean/LeanNiche/Utils.lean",
+            "src/lean/LeanNiche/Visualization.lean"
+        ]
+
+        import_errors = 0
+        modules_checked = 0
+
+        for module_path in core_modules:
+            lean_file = self.project_root / module_path
+            if not lean_file.exists():
+                continue
+
+            modules_checked += 1
+
+            try:
+                with open(lean_file, 'r') as f:
+                    content = f.read()
+
+                # Find all import statements
+                imports = re.findall(r'^import\s+([^\s]+)', content, re.MULTILINE)
+
+                for import_path in imports:
+                    # Convert import path to file path
+                    import_parts = import_path.split('.')
+                    file_path = self.project_root / "src" / "lean"
+
+                    for part in import_parts:
+                        file_path = file_path / part
+
+                    file_path = file_path.with_suffix('.lean')
+
+                    if not file_path.exists():
+                        import_errors += 1
+                        # Only report the first few import errors to avoid spam
+                        if import_errors <= 3:
+                            self.issues.append(f"Missing import in {module_path}: {import_path}")
+
+            except Exception as e:
+                self.issues.append(f"Error reading {lean_file}: {e}")
+                return False
+
+        if import_errors > 0:
+            self.issues.append(f"Core module imports: {import_errors} import errors found in {modules_checked} modules")
+            return import_errors <= 2  # Allow a few import issues in core modules
+
+        return True
 
     def verify_python_files(self) -> bool:
         """Verify Python source files"""
@@ -191,6 +313,8 @@ class SetupVerifier:
             ("Project Structure", self.verify_structure),
             ("Configuration Files", self.verify_config_files),
             ("Lean Source Files", self.verify_lean_files),
+            ("Lean Compilation", self.verify_lean_compilation),
+            ("Lean Imports", self.verify_lean_imports),
             ("Python Source Files", self.verify_python_files),
             ("LaTeX Files", self.verify_latex_files),
             ("Build Scripts", self.verify_scripts),

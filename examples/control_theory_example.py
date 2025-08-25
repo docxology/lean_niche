@@ -27,10 +27,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 try:
     from src.python.core.orchestrator_base import LeanNicheOrchestratorBase
-except Exception as e:
-    print(f"❌ Import error: {e}")
-    print("Please run from the LeanNiche project root after setup")
-    raise
+except ImportError:
+    try:
+        # Fall back to older import path if available
+        from python.core.orchestrator_base import LeanNicheOrchestratorBase
+    except Exception as e:
+        print(f"❌ Import error: {e}")
+        print("Please run from the LeanNiche project root after setup")
+        raise
 
 class ControlTheoryOrchestrator(LeanNicheOrchestratorBase):
     """Clean thin orchestrator for control theory analysis (uses LeanNicheOrchestratorBase)."""
@@ -207,9 +211,13 @@ end ControlTheoryAnalysis
                 except Exception:
                     pass
 
-                # Generate categorized proof outputs (JSON files)
-                self.lean_runner.generate_proof_output(verification_result, self.proofs_dir, prefix="control_theory")
-                print("📊 Proof outcomes saved")
+                # HONEST: Generate categorized proof outputs (JSON files) only if verification succeeded
+                verification_status = verification_result.get('result', {}).get('verification_status', {})
+                if verification_status.get('compilation_successful', False) and verification_status.get('total_proofs', 0) > 0:
+                    self.lean_runner.generate_proof_output(verification_result, self.proofs_dir, prefix="control_theory")
+                    print("📊 HONEST: Real proof outcomes saved")
+                else:
+                    print(f"⚠️  HONEST VERIFICATION: No real proofs - {verification_status.get('total_proofs', 0)} verified")
             else:
                 print(f"⚠️ Lean verification warning: {verification_result.get('error', 'Unknown')}")
         except Exception as e:
@@ -245,7 +253,11 @@ end ControlTheoryArtifacts
             # write them into the proof JSON artifacts so tests can see them.
             try:
                 extra_res = self.lean_runner.run_lean_code(extra_code, imports=['LeanNiche.ControlTheory', 'LeanNiche.generated_artifacts.control_theory_artifacts'])
-                extra_saved = self.lean_runner.generate_proof_output(extra_res, self.proofs_dir, prefix='control_theory_artifacts')
+                # HONEST: Only save if verification succeeded
+                extra_saved = {}
+                verification_status = extra_res.get('result', {}).get('verification_status', {})
+                if verification_status.get('compilation_successful', False) and verification_status.get('total_proofs', 0) > 0:
+                    extra_saved = self.lean_runner.generate_proof_output(extra_res, self.proofs_dir, prefix='control_theory_artifacts')
                 if extra_saved:
                     print("📂 Additional proof artifacts saved:")
                     for k, p in extra_saved.items():
@@ -268,10 +280,13 @@ end ControlTheoryArtifacts
                 except Exception:
                     pass
 
-            # Re-run consolidation for the main verification result so artifact names
-            # written after the initial run are merged into the main proof outputs.
+            # HONEST: Re-run consolidation for the main verification result only if verification succeeded
             try:
-                self.lean_runner.generate_proof_output(verification_result, self.proofs_dir, prefix="control_theory")
+                verification_status = verification_result.get('result', {}).get('verification_status', {})
+                if verification_status.get('compilation_successful', False) and verification_status.get('total_proofs', 0) > 0:
+                    self.lean_runner.generate_proof_output(verification_result, self.proofs_dir, prefix="control_theory")
+                else:
+                    print(f"⚠️  HONEST VERIFICATION: Skipping consolidation - no real proofs verified")
             except Exception:
                 pass
 

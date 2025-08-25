@@ -613,7 +613,12 @@ Failed: {metrics.get('failed_tests', 0)}
 
     def save_comprehensive_proof_outcomes(self, results: Dict[str, Any],
                                         output_dir: Path, prefix: str = "proof_outcomes") -> Dict[str, Path]:
-        """Save comprehensive proof outcomes to multiple files"""
+        """
+        Save HONEST proof outcomes to multiple files.
+
+        This method ONLY saves real verification results. It never generates fake data
+        or pretends that proofs exist when they don't.
+        """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         saved_files = {}
 
@@ -633,38 +638,20 @@ Failed: {metrics.get('failed_tests', 0)}
         for dir_path in [proof_dir, verification_dir, performance_dir]:
             dir_path.mkdir(parents=True, exist_ok=True)
 
-        # Save detailed proof outcomes
-        if results.get('result'):
-            proof_data = results['result']
+        # Get the actual proof data from results
+        proof_data = results.get('result', {})
 
-            # If the parser did not discover theorems/definitions from stdout,
-            # also scan any .lean files in the output directory for explicit
-            # `theorem`/`def` declarations written by the orchestrators and
-            # include them in the saved artifacts so tests/CI observe them.
-            try:
-                extra_theorems = []
-                extra_definitions = []
-                for lean_path in output_dir.glob('*.lean'):
-                    try:
-                        text = lean_path.read_text(encoding='utf-8')
-                        extracted = self.extract_mathematical_results(text)
-                        for t in extracted.get('theorems', []):
-                            extra_theorems.append({'type': 'theorem', 'name': t.get('name'), 'line': t.get('statement'), 'context': None})
-                        for d in extracted.get('definitions', []):
-                            extra_definitions.append({'type': 'def', 'name': d.get('name'), 'line': d.get('body'), 'context': None})
-                    except Exception:
-                        continue
+        # CRITICAL: Only include theorems/definitions if verification actually succeeded
+        verification_status = proof_data.get('verification_status', {})
+        compilation_successful = verification_status.get('compilation_successful', False)
 
-                # Merge extras into proof_data lists if not already present
-                if extra_theorems:
-                    proof_data.setdefault('theorems_proven', [])
-                    proof_data['theorems_proven'].extend([t for t in extra_theorems if t['name'] not in [p.get('name') for p in proof_data.get('theorems_proven', [])]])
-                if extra_definitions:
-                    proof_data.setdefault('definitions_created', [])
-                    proof_data['definitions_created'].extend([d for d in extra_definitions if d['name'] not in [p.get('name') for p in proof_data.get('definitions_created', [])]])
-            except Exception:
-                # Don't fail artifact saving if scanning extras fails
-                pass
+        if not compilation_successful:
+            # HONEST: If compilation failed, there are no verified theorems or definitions
+            proof_data['theorems_proven'] = []
+            proof_data['definitions_created'] = []
+            proof_data['lemmas_proven'] = []
+            proof_data['mathematical_properties'] = []
+            self.logger.warning(f"Compilation failed for {prefix} - reporting zero verified proofs")
 
             # Save theorems and lemmas (ensure key always present even if empty)
             theorems_file = proof_dir / f"{prefix}_theorems_{timestamp}.json"

@@ -7,7 +7,7 @@ data plotting, and graphical representation of mathematical structures.
 
 import LeanNiche.Basic
 import LeanNiche.Utils
-import LeanNiche.Statistics
+import LeanNiche.BasicStatistics
 
 namespace LeanNiche.Visualization
 

@@ -89,11 +89,22 @@ class ExampleRunner:
         print("-" * 50)
 
         try:
-            # Run the example script
+            # Run the example script with proper Python path
             start_time = time.time()
+
+            # Set PYTHONPATH to include the src directory
+            env = os.environ.copy()
+            project_root = Path(__file__).parent.parent
+            src_path = str(project_root / 'src')
+            if 'PYTHONPATH' in env:
+                env['PYTHONPATH'] = src_path + ':' + env['PYTHONPATH']
+            else:
+                env['PYTHONPATH'] = src_path
+
             result = subprocess.run(
                 [sys.executable, str(script_path)],
-                cwd=self.examples_dir,
+                cwd=str(project_root),  # Run from project root so relative paths work
+                env=env,
                 capture_output=True,
                 text=True,
                 timeout=300  # 5-minute timeout per example

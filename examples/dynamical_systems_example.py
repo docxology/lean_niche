@@ -29,11 +29,17 @@ try:
     from src.python.core.orchestrator_base import LeanNicheOrchestratorBase
     # Alias for compatibility with existing code
     DynamicalSystemsVisualizer = None
-except Exception as e:
-    print(f"❌ Import error: {e}")
-    print("Please run from the LeanNiche project root after setup")
-    # Allow import to proceed in test environment (tests will patch imports)
-    raise
+except ImportError:
+    try:
+        # Fall back to older import path if available
+        from python.core.orchestrator_base import LeanNicheOrchestratorBase
+        # Alias for compatibility with existing code
+        DynamicalSystemsVisualizer = None
+    except Exception as e:
+        print(f"❌ Import error: {e}")
+        print("Please run from the LeanNiche project root after setup")
+        # Allow import to proceed in test environment (tests will patch imports)
+        raise
 
 class DynamicalSystemsOrchestrator(LeanNicheOrchestratorBase):
     """Clean thin orchestrator for dynamical systems analysis (uses LeanNicheOrchestratorBase)."""
@@ -171,7 +177,14 @@ end DynamicalSystemsAnalysis
                 self.lean_runner.export_lean_code(dynamical_lean_code, self.proofs_dir / "dynamical_systems_theory.lean")
 
                 # Save proof outputs and summaries
-                saved_outputs = self.lean_runner.generate_proof_output(verification_result, self.proofs_dir, prefix="dynamical_systems")
+                # HONEST: Check if verification actually succeeded
+                verification_status = verification_result.get('result', {}).get('verification_status', {})
+                if verification_status.get('compilation_successful', False) and verification_status.get('total_proofs', 0) > 0:
+                    saved_outputs = self.lean_runner.generate_proof_output(verification_result, self.proofs_dir, prefix="dynamical_systems")
+                    print("📂 HONEST: Real proofs verified and saved")
+                else:
+                    print(f"⚠️  HONEST VERIFICATION: No real proofs - {verification_status.get('total_proofs', 0)} verified")
+                    saved_outputs = {}
                 print(f"📊 Proof outcomes saved: {', '.join(p.name for p in saved_outputs.values())}")
             else:
                 print(f"⚠️ Lean verification warning: {verification_result.get('error', 'Unknown')}")

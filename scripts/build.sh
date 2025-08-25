@@ -80,6 +80,65 @@ build_project() {
     fi
 }
 
+# Verify Lean module structure
+verify_lean_modules() {
+    print_status "Verifying Lean module structure..."
+
+    # Check for core LeanNiche modules
+    local required_modules=(
+        "src/lean/LeanNiche/Basic.lean"
+        "src/lean/LeanNiche/Advanced.lean"
+        "src/lean/LeanNiche/Computational.lean"
+        "src/lean/LeanNiche/Main.lean"
+    )
+
+    local missing_modules=0
+    for module in "${required_modules[@]}"; do
+        if [ ! -f "$module" ]; then
+            print_error "Missing required module: $module"
+            missing_modules=$((missing_modules + 1))
+        else
+            print_success "Found: $module"
+        fi
+    done
+
+    if [ $missing_modules -gt 0 ]; then
+        print_error "Missing $missing_modules required Lean modules"
+        return 1
+    else
+        print_success "All core Lean modules present"
+        return 0
+    fi
+}
+
+# Test Lean compilation
+test_lean_compilation() {
+    print_status "Testing Lean compilation..."
+
+    local compile_errors=0
+    local total_files=0
+
+    for file in $(find src -name "*.lean" -type f); do
+        total_files=$((total_files + 1))
+        print_status "Testing: $file"
+
+        if lean "$file" 2>&1 | grep -q "error:"; then
+            print_error "  ✗ Compilation failed: $file"
+            compile_errors=$((compile_errors + 1))
+        else
+            print_success "  ✓ Compilation successful: $file"
+        fi
+    done
+
+    if [ $compile_errors -gt 0 ]; then
+        print_error "Lean compilation test failed: $compile_errors/$total_files files failed"
+        return 1
+    else
+        print_success "All $total_files Lean files compile successfully"
+        return 0
+    fi
+}
+
 # Run tests
 run_tests() {
     print_status "Running test suite..."
@@ -186,9 +245,15 @@ main() {
         "verify")
             verify_mathlib
             ;;
+        "lean")
+            verify_lean_modules
+            test_lean_compilation
+            ;;
         "all")
             clean_build
             update_dependencies
+            verify_lean_modules
+            test_lean_compilation
             build_project
             run_tests
             generate_docs
@@ -197,7 +262,7 @@ main() {
             verify_mathlib
             ;;
         *)
-            print_error "Usage: $0 [clean|update|build|test|docs|analyze|perf|verify|all]"
+            print_error "Usage: $0 [clean|update|build|test|docs|analyze|perf|verify|lean|all]"
             exit 1
             ;;
     esac

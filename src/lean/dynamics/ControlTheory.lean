@@ -7,7 +7,7 @@ and robust control methods with complete mathematical proofs.
 -/
 
 import LeanNiche.Basic
-import LeanNiche.LinearAlgebra
+import LeanNiche.BasicLinearAlgebra
 import LeanNiche.DynamicalSystems
 
 namespace LeanNiche.ControlTheory

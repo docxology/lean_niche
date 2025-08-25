@@ -6,13 +6,13 @@ cumulative prospect theory, and decision-making under uncertainty with ambiguity
 -/
 
 import LeanNiche.Basic
-import LeanNiche.Statistics
-import LeanNiche.LinearAlgebra
+import LeanNiche.BasicStatistics
+import LeanNiche.BasicLinearAlgebra
 
 namespace LeanNiche.DecisionMaking
 
 open LeanNiche.Basic
-open LeanNiche.Statistics
+open LeanNiche.BasicStatistics
 open LeanNiche.LinearAlgebra
 
 /-- Prospect theory value function -/

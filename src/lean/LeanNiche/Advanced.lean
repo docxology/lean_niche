@@ -1,30 +1,23 @@
-/- Canonical Advanced module moved from core to LeanNiche namespace (copied).
+/-!
+# LeanNiche Advanced Module
+Mathematical foundations and advanced concepts for LeanNiche.
+-/
 
-namespace LeanNiche.Advanced
+namespace LeanNiche
 
-def factorial : Nat → Nat
-  | 0 => 1
-  | n + 1 => (n + 1) * factorial n
+/-- Advanced mathematical structures and concepts -/
+structure AdvancedStructure where
+  field1 : Nat
+  field2 : Nat
 
-theorem factorial_zero : factorial 0 = 1 := by rfl
-theorem factorial_one : factorial 1 = 1 := by rfl
-theorem factorial_two : factorial 2 = 2 := by rfl
-
-theorem add_zero (n : Nat) : n + 0 = n := by
-  cases n with
+/-- Advanced theorem using basic concepts -/
+theorem advanced_theorem (x : Nat) : x + 0 = x := by
+  induction x with
   | zero => rfl
-  | succ n' => exact congrArg Nat.succ (add_zero n')
+  | succ n ih => rw [Nat.succ_add, ih]
 
-def list_reverse {α : Type} : List α → List α
-  | [] => []
-  | x :: xs => list_reverse xs ++ [x]
+/-- Simple advanced theorem -/
+theorem simple_advanced (n : Nat) : n ≥ 0 := by
+  exact Nat.zero_le n
 
-theorem reverse_nil {α : Type} : list_reverse ([] : List α) = [] := by rfl
-
-end LeanNiche.Advanced
-
-import analysis.Advanced
-
-/- Wrapper forwarding to `analysis.Advanced` -/
-
-
+end LeanNiche

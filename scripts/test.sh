@@ -77,6 +77,72 @@ test_lean_module() {
     run_test "$test_name compilation" "lake build" "Build completed successfully"
 }
 
+# Test Lean file compilation directly
+test_lean_file_compilation() {
+    print_status "Testing individual Lean file compilation..."
+
+    local compile_errors=0
+    local total_files=0
+
+    for file in $(find src -name "*.lean" -type f); do
+        total_files=$((total_files + 1))
+        print_status "Testing compilation: $file"
+
+        if lean "$file" 2>&1 | grep -q "error:"; then
+            print_error "  ✗ Compilation failed: $file"
+            compile_errors=$((compile_errors + 1))
+        else
+            print_success "  ✓ Compilation successful: $file"
+        fi
+    done
+
+    if [ $compile_errors -gt 0 ]; then
+        print_error "Lean compilation test failed: $compile_errors/$total_files files failed"
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+    else
+        print_success "All $total_files Lean files compile successfully"
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+    fi
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+}
+
+# Test Lean module imports
+test_lean_imports() {
+    print_status "Testing Lean module imports..."
+
+    local import_errors=0
+    local total_imports=0
+
+    for file in $(find src -name "*.lean" -type f); do
+        local imports=$(grep "^import " "$file" | sed 's/import //g' || true)
+
+        if [ -n "$imports" ]; then
+            print_status "Checking imports in: $file"
+            echo "$imports" | while read -r import; do
+                total_imports=$((total_imports + 1))
+
+                # Check if imported module exists
+                local module_path="src/lean/${import}.lean"
+                if [ ! -f "$module_path" ]; then
+                    print_error "  ✗ Missing module: $import (expected: $module_path)"
+                    import_errors=$((import_errors + 1))
+                else
+                    print_success "  ✓ Found module: $import"
+                fi
+            done
+        fi
+    done
+
+    if [ $import_errors -gt 0 ]; then
+        print_error "Lean import test failed: $import_errors/$total_imports imports failed"
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+    else
+        print_success "All $total_imports Lean imports resolve correctly"
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+    fi
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+}
+
 # Unit tests for individual modules using Lake
 test_basic_module() {
     print_status "Testing Basic module..."
@@ -283,7 +349,13 @@ main() {
         "dependencies")
             test_dependencies
             ;;
+        "lean")
+            test_lean_file_compilation
+            test_lean_imports
+            ;;
         "all")
+            test_lean_file_compilation
+            test_lean_imports
             test_basic_module
             test_advanced_module
             test_tactics_module
@@ -307,7 +379,7 @@ main() {
             test_dependencies
             ;;
         *)
-            print_error "Usage: $0 [unit|integration|performance|coverage|dependencies|all]"
+            print_error "Usage: $0 [unit|integration|performance|coverage|dependencies|lean|all]"
             exit 1
             ;;
     esac
