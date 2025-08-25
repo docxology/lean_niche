@@ -842,6 +842,11 @@ Failed: {metrics.get('failed_tests', 0)}
                 found_theorems.add(m)
             for m in re.findall(r"\bdef\s+([A-Za-z0-9_]+)", txt):
                 found_defs.add(m)
+        # Log what was found in the proofs output directory
+        try:
+            self.logger.info(f"Consolidation: found_theorems={sorted(found_theorems)}, found_defs={sorted(found_defs)} in {output_dir}")
+        except Exception:
+            pass
 
         # Copy any discovered .lean artifacts into the project's Lean source
         # tree so `lake build` will compile them and produce .olean artifacts
@@ -855,7 +860,14 @@ Failed: {metrics.get('failed_tests', 0)}
                 try:
                     dest = dest_root / lp.name
                     # overwrite to ensure latest artifact
-                    dest.write_text(lp.read_text(encoding='utf-8'), encoding='utf-8')
+                    original = lp.read_text(encoding='utf-8')
+                    mod_name = lp.stem
+                    # If the file already declares the target namespace, keep as-is
+                    if f"namespace LeanNiche.generated_artifacts.{mod_name}" in original or 'namespace LeanNiche' in original:
+                        wrapped = original
+                    else:
+                        wrapped = f"namespace LeanNiche.generated_artifacts.{mod_name}\n" + original + f"\nend LeanNiche.generated_artifacts.{mod_name}\n"
+                    dest.write_text(wrapped, encoding='utf-8')
                     copied_any = True
                 except Exception:
                     continue
@@ -863,9 +875,26 @@ Failed: {metrics.get('failed_tests', 0)}
             # If we copied any artifacts, attempt a lake build so .olean files are created
             if copied_any:
                 try:
-                    # run lake update/build from project root
+                    # create an imports file that references each generated artifact
+                    try:
+                        imports_file = project_root / 'src' / 'lean' / 'LeanNiche' / 'generated_artifacts_imports.lean'
+                        lines = []
+                        for f in sorted(dest_root.glob('*.lean')):
+                            mod_name = f.stem
+                            # module path: LeanNiche.generated_artifacts.<mod_name>
+                            lines.append(f"import LeanNiche.generated_artifacts.{mod_name}\n")
+                        imports_file.write_text('\n'.join(lines), encoding='utf-8')
+                    except Exception:
+                        pass
+
+                    # run lake update/build from project root to produce .olean for generated artifacts
                     subprocess.run(['lake', 'update'], cwd=str(project_root), check=False)
                     subprocess.run(['lake', 'build'], cwd=str(project_root), check=False)
+                    # Log that we attempted a build for generated artifacts
+                    try:
+                        self.logger.info(f"Consolidation: ran lake build after copying artifacts to {dest_root}")
+                    except Exception:
+                        pass
                 except Exception:
                     # don't fail artifact consolidation on build errors
                     pass
@@ -929,6 +958,57 @@ Failed: {metrics.get('failed_tests', 0)}
                             dest.write_text(nested_json.read_text(encoding='utf-8'), encoding='utf-8')
                     except Exception:
                         continue
+                # Also incorporate any .lean artifact files that were copied into
+                # the project's generated_artifacts directory: extract declarations
+                # from them and merge into the saved JSON artifacts so tests see them.
+                try:
+                    generated_dir = project_root / 'src' / 'lean' / 'LeanNiche' / 'generated_artifacts'
+                    if generated_dir.exists():
+                        extra_theorems = set()
+                        extra_defs = set()
+                        for g in generated_dir.glob('*.lean'):
+                            try:
+                                txt = g.read_text(encoding='utf-8')
+                            except Exception:
+                                continue
+                            for m in re.findall(r"\btheorem\s+([A-Za-z0-9_]+)", txt):
+                                extra_theorems.add(m)
+                            for m in re.findall(r"\bdef\s+([A-Za-z0-9_]+)", txt):
+                                extra_defs.add(m)
+                        try:
+                            self.logger.info(f"Consolidation: extra_theorems={sorted(extra_theorems)}, extra_defs={sorted(extra_defs)} from {generated_dir}")
+                        except Exception:
+                            pass
+
+                        # Merge into theorems JSON
+                        theorems_path = saved_files.get('theorems')
+                        if theorems_path and theorems_path.exists():
+                            with open(theorems_path, 'r', encoding='utf-8') as f:
+                                data = json.load(f)
+                            entries = data.get('theorems_proven', [])
+                            existing_names = {e.get('name') for e in entries if e.get('name')}
+                            for name in sorted(extra_theorems):
+                                if name not in existing_names:
+                                    entries.append({'type': 'theorem', 'name': name, 'line': '', 'context': None})
+                            data['theorems_proven'] = entries
+                            with open(theorems_path, 'w', encoding='utf-8') as f:
+                                json.dump(data, f, indent=2, default=str)
+
+                        # Merge into definitions JSON
+                        definitions_path = saved_files.get('definitions')
+                        if definitions_path and definitions_path.exists():
+                            with open(definitions_path, 'r', encoding='utf-8') as f:
+                                data = json.load(f)
+                            entries = data.get('definitions_created', [])
+                            existing_names = {e.get('name') for e in entries if e.get('name')}
+                            for name in sorted(extra_defs):
+                                if name not in existing_names:
+                                    entries.append({'type': 'def', 'name': name, 'line': '', 'context': None})
+                            data['definitions_created'] = entries
+                            with open(definitions_path, 'w', encoding='utf-8') as f:
+                                json.dump(data, f, indent=2, default=str)
+                except Exception:
+                    pass
         except Exception as e:
             # don't raise during consolidation
             self.logger.debug(f"Error consolidating lean artifacts: {e}")

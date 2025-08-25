@@ -25,5 +25,15 @@ import LeanNiche.LearningAdaptation
 import LeanNiche.ProofExport
 
 /- Minimal file to satisfy lake build -/
+/- Attempt to import any generated artifact modules if present. This is a
+   best-effort import that allows tests to add small example artifact files
+   into `src/lean/LeanNiche/generated_artifacts/` and have lake compile them.
+   If the imports file is missing, we silently ignore it so build remains robust.
+/-
+try
+  import LeanNiche.generated_artifacts_imports
+catch _ =>
+  -- no generated artifacts
+end
 
 

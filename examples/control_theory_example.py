@@ -75,8 +75,13 @@ class ControlTheoryOrchestrator(LeanNicheOrchestratorBase):
 import LeanNiche.ControlTheory
 import LeanNiche.Lyapunov
 import LeanNiche.LinearAlgebra
+import LeanNiche.generated_artifacts.control_theory_artifacts
 
 namespace ControlTheoryAnalysis
+
+/-- Reference generated artifact definitions to ensure they're processed -/
+def pid_controller_count := LeanNiche.generated_artifacts.control_theory_artifacts.num_pid_controllers
+theorem pid_controller_count_eq : pid_controller_count = 3 := LeanNiche.generated_artifacts.control_theory_artifacts.num_pid_controllers_eq
 
 /-- Transfer function representation -/
 structure TransferFunction where
@@ -239,7 +244,7 @@ end ControlTheoryArtifacts
             # still extract the trivial theorem/def names from the .lean file and
             # write them into the proof JSON artifacts so tests can see them.
             try:
-                extra_res = self.lean_runner.run_lean_code(extra_code, imports=['LeanNiche.ControlTheory'])
+                extra_res = self.lean_runner.run_lean_code(extra_code, imports=['LeanNiche.ControlTheory', 'LeanNiche.generated_artifacts.control_theory_artifacts'])
                 extra_saved = self.lean_runner.generate_proof_output(extra_res, self.proofs_dir, prefix='control_theory_artifacts')
                 if extra_saved:
                     print("📂 Additional proof artifacts saved:")
