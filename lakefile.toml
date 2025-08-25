@@ -3,7 +3,7 @@ version = "0.1.0"
 description = "Advanced Deep Research Environment for Mathematics and Dynamical Systems"
 
 # Main LeanNiche library with comprehensive source directory
-[[_lean_lib]]
+[[lean_lib]]
 name = "LeanNiche"
 srcDir = "src/lean"
 

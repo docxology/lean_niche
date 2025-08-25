@@ -1,23 +1,55 @@
+import LeanNiche.Basic
+
 /-!
 # LeanNiche Computational Module
-Computational methods and algorithms for LeanNiche.
+Computational verification and algorithmic implementations.
 -/
 
-namespace LeanNiche
+namespace LeanNiche.Computational
 
-/-- Computational structure for numerical methods -/
-structure Computational where
-  precision : Nat
-  iterations : Nat
+open LeanNiche.Basic
 
-/-- Simple iterative computation -/
-def iterative_sum (n : Nat) : Nat :=
-  match n with
+-- Fibonacci sequence for computational testing
+def fibonacci : Nat → Nat
   | 0 => 0
-  | n + 1 => n + 1 + iterative_sum n
+  | 1 => 1
+  | n + 2 => fibonacci n + fibonacci (n + 1)
 
-/-- Simple computational theorem -/
-theorem iterative_sum_base : iterative_sum 0 = 0 := by
-  rfl
+-- Factorial function
+def factorial : Nat → Nat
+  | 0 => 1
+  | n + 1 => (n + 1) * factorial n
 
-end LeanNiche
+-- List operations
+def list_sum (xs : List Nat) : Nat := xs.foldl (· + ·) 0
+
+-- Computational theorems
+
+theorem fibonacci_positive (n : Nat) (h : n > 0) : fibonacci n > 0 := by
+  cases n with
+  | zero => contradiction
+  | succ k =>
+    cases k with
+    | zero => simp [fibonacci]
+    | succ m => 
+      simp [fibonacci]
+      apply Nat.add_pos_right
+      apply fibonacci_positive
+      simp
+
+theorem factorial_positive (n : Nat) : factorial n > 0 := by
+  induction n with
+  | zero => simp [factorial]
+  | succ n ih =>
+    simp [factorial]
+    exact ih
+
+theorem list_sum_nonneg (xs : List Nat) : list_sum xs ≥ 0 := by
+  exact Nat.zero_le _
+
+theorem computational_correctness :
+  fibonacci 5 = 5 ∧ 
+  factorial 4 = 24 := by
+  simp [fibonacci, factorial]
+
+end LeanNiche.Computational

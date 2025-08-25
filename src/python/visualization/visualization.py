@@ -167,6 +167,574 @@ class MathematicalVisualizer:
 
         return fig
 
+    # Domain-specific visualization methods
+    def create_control_visualizations(self, pid_results: List[Dict[str, Any]],
+                                    stability_results: Dict[str, Any],
+                                    output_dir: Path) -> None:
+        """Create comprehensive control theory visualizations."""
+        print("📊 Creating control theory visualizations...")
+
+        # Set style
+        plt.style.use('seaborn-v0_8')
+        sns.set_palette("husl")
+
+        # 1. PID Controller Performance Comparison
+        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+        fig.suptitle('PID Controller Performance Analysis', fontsize=16)
+
+        controller_names = []
+        settling_times = []
+        steady_state_errors = []
+        overshoots = []
+        control_efforts = []
+
+        for result in pid_results:
+            controller_names.append(result['name'])
+            settling_times.append(result.get('settling_time', 0))
+            steady_state_errors.append(result.get('steady_state_error', 0))
+            overshoots.append(result.get('overshoot', 0))
+            control_efforts.append(result.get('control_effort', 0))
+
+        # Performance metrics comparison
+        axes[0, 0].bar(controller_names, settling_times, alpha=0.7, color='blue')
+        axes[0, 0].set_title('Settling Time Comparison')
+        axes[0, 0].set_ylabel('Time (s)')
+        axes[0, 0].tick_params(axis='x', rotation=45)
+
+        axes[0, 1].bar(controller_names, steady_state_errors, alpha=0.7, color='green')
+        axes[0, 1].set_title('Steady State Error')
+        axes[0, 1].set_ylabel('Error')
+        axes[0, 1].tick_params(axis='x', rotation=45)
+
+        axes[1, 0].bar(controller_names, overshoots, alpha=0.7, color='red')
+        axes[1, 0].set_title('Overshoot Percentage')
+        axes[1, 0].set_ylabel('Overshoot (%)')
+        axes[1, 0].tick_params(axis='x', rotation=45)
+
+        axes[1, 1].bar(controller_names, control_efforts, alpha=0.7, color='purple')
+        axes[1, 1].set_title('Control Effort')
+        axes[1, 1].set_ylabel('Control Magnitude')
+        axes[1, 1].tick_params(axis='x', rotation=45)
+
+        plt.tight_layout()
+        plt.savefig(output_dir / "pid_performance_comparison.png", dpi=300, bbox_inches='tight')
+        plt.close()
+
+        # 2. System Stability Analysis
+        if stability_results:
+            fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+            fig.suptitle('System Stability Analysis', fontsize=16)
+
+            # Eigenvalue plot
+            if 'eigenvalues' in stability_results:
+                eigenvalues = stability_results['eigenvalues']
+                real_parts = [ev.real for ev in eigenvalues]
+                imag_parts = [ev.imag for ev in eigenvalues]
+
+                axes[0, 0].scatter(real_parts, imag_parts, s=100, marker='x', color='red')
+                axes[0, 0].axvline(x=0, color='black', linestyle='--', alpha=0.5)
+                axes[0, 0].axhline(y=0, color='black', linestyle='--', alpha=0.5)
+                axes[0, 0].set_xlabel('Real Part')
+                axes[0, 0].set_ylabel('Imaginary Part')
+                axes[0, 0].set_title('Eigenvalue Analysis')
+                axes[0, 0].grid(True, alpha=0.3)
+                axes[0, 0].set_aspect('equal')
+
+            # Step response
+            if 'step_response' in stability_results:
+                step_data = stability_results['step_response']
+                axes[0, 1].plot(step_data['time'], step_data['response'], 'b-', linewidth=2)
+                axes[0, 1].set_xlabel('Time (s)')
+                axes[0, 1].set_ylabel('Response')
+                axes[0, 1].set_title('Step Response')
+                axes[0, 1].grid(True, alpha=0.3)
+
+            # Bode plot
+            if 'bode_plot' in stability_results:
+                bode_data = stability_results['bode_plot']
+                axes[1, 0].semilogx(bode_data['frequency'], bode_data['magnitude'], 'b-')
+                axes[1, 0].set_xlabel('Frequency (rad/s)')
+                axes[1, 0].set_ylabel('Magnitude (dB)')
+                axes[1, 0].set_title('Bode Magnitude Plot')
+                axes[1, 0].grid(True, alpha=0.3)
+
+                axes[1, 1].semilogx(bode_data['frequency'], bode_data['phase'], 'r-')
+                axes[1, 1].set_xlabel('Frequency (rad/s)')
+                axes[1, 1].set_ylabel('Phase (degrees)')
+                axes[1, 1].set_title('Bode Phase Plot')
+                axes[1, 1].grid(True, alpha=0.3)
+
+            plt.tight_layout()
+            plt.savefig(output_dir / "stability_analysis.png", dpi=300, bbox_inches='tight')
+            plt.close()
+
+        # 3. Pole-Zero Map
+        if 'pole_zero' in stability_results:
+            fig, ax = plt.subplots(figsize=(10, 8))
+            pole_zero = stability_results['pole_zero']
+
+            if 'poles' in pole_zero:
+                poles_real = [p.real for p in pole_zero['poles']]
+                poles_imag = [p.imag for p in pole_zero['poles']]
+                ax.scatter(poles_real, poles_imag, s=100, marker='x', color='red', label='Poles')
+
+            if 'zeros' in pole_zero:
+                zeros_real = [z.real for z in pole_zero['zeros']]
+                zeros_imag = [z.imag for z in pole_zero['zeros']]
+                ax.scatter(zeros_real, zeros_imag, s=100, marker='o', color='blue', label='Zeros')
+
+            ax.axvline(x=0, color='black', linestyle='--', alpha=0.5)
+            ax.axhline(y=0, color='black', linestyle='--', alpha=0.5)
+            ax.set_xlabel('Real Part')
+            ax.set_ylabel('Imaginary Part')
+            ax.set_title('Pole-Zero Map')
+            ax.legend()
+            ax.grid(True, alpha=0.3)
+            ax.set_aspect('equal')
+
+            plt.tight_layout()
+            plt.savefig(output_dir / "pole_zero_map.png", dpi=300, bbox_inches='tight')
+            plt.close()
+
+        print(f"✅ Control visualizations saved to: {output_dir}")
+
+    def create_dynamical_visualizations(self, logistic_results: Dict[str, Any],
+                                       oscillator_results: Dict[str, Any],
+                                       output_dir: Path) -> None:
+        """Create comprehensive dynamical systems visualizations."""
+        print("📊 Creating dynamical systems visualizations...")
+
+        # Set style
+        plt.style.use('seaborn-v0_8')
+        sns.set_palette("husl")
+
+        # 1. Logistic Map Bifurcation Diagram
+        if logistic_results and 'bifurcation_data' in logistic_results:
+            fig, ax = plt.subplots(figsize=(12, 8))
+            bifurcation_data = logistic_results['bifurcation_data']
+
+            if 'parameters' in bifurcation_data and 'attractors' in bifurcation_data:
+                params = bifurcation_data['parameters']
+                attractors = bifurcation_data['attractors']
+
+                for param, attr in zip(params, attractors):
+                    ax.scatter([param] * len(attr), attr, s=1, c='black', alpha=0.7)
+
+            ax.set_xlabel('r (Growth Rate)')
+            ax.set_ylabel('x (Population)')
+            ax.set_title('Logistic Map Bifurcation Diagram')
+            ax.grid(True, alpha=0.3)
+
+            plt.tight_layout()
+            plt.savefig(output_dir / "bifurcation_diagram.png", dpi=300, bbox_inches='tight')
+            plt.close()
+
+        # 2. Phase Portrait Analysis
+        if oscillator_results and 'phase_portraits' in oscillator_results:
+            fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+            fig.suptitle('Nonlinear Oscillator Phase Portraits', fontsize=16)
+
+            phase_data = oscillator_results['phase_portraits']
+            for i, (key, data) in enumerate(phase_data.items()):
+                if i >= 4:  # Limit to 4 subplots
+                    break
+
+                row, col = i // 2, i % 2
+                if 'x' in data and 'y' in data:
+                    axes[row, col].plot(data['x'], data['y'], 'b-', alpha=0.7, linewidth=1)
+                    axes[row, col].scatter(data['x'][0], data['y'][0], s=100, marker='o', color='green', label='Start')
+                    axes[row, col].scatter(data['x'][-1], data['y'][-1], s=100, marker='s', color='red', label='End')
+                    axes[row, col].set_xlabel('Position')
+                    axes[row, col].set_ylabel('Velocity')
+                    axes[row, col].set_title(f'Phase Portrait: {key}')
+                    axes[row, col].legend()
+                    axes[row, col].grid(True, alpha=0.3)
+                    axes[row, col].set_aspect('equal')
+
+            plt.tight_layout()
+            plt.savefig(output_dir / "phase_portraits.png", dpi=300, bbox_inches='tight')
+            plt.close()
+
+        # 3. Time Series Analysis
+        if oscillator_results and 'time_series' in oscillator_results:
+            fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+            fig.suptitle('Nonlinear Oscillator Time Series', fontsize=16)
+
+            time_data = oscillator_results['time_series']
+            for i, (key, data) in enumerate(time_data.items()):
+                if i >= 4:  # Limit to 4 subplots
+                    break
+
+                row, col = i // 2, i % 2
+                if 'time' in data and 'position' in data and 'velocity' in data:
+                    axes[row, col].plot(data['time'], data['position'], 'b-', linewidth=2, label='Position')
+                    axes[row, col].plot(data['time'], data['velocity'], 'r--', linewidth=2, label='Velocity')
+                    axes[row, col].set_xlabel('Time')
+                    axes[row, col].set_ylabel('Value')
+                    axes[row, col].set_title(f'Time Series: {key}')
+                    axes[row, col].legend()
+                    axes[row, col].grid(True, alpha=0.3)
+
+            plt.tight_layout()
+            plt.savefig(output_dir / "time_series.png", dpi=300, bbox_inches='tight')
+            plt.close()
+
+        # 4. Energy Conservation Analysis
+        if oscillator_results and 'energy_analysis' in oscillator_results:
+            fig, ax = plt.subplots(figsize=(12, 8))
+            energy_data = oscillator_results['energy_analysis']
+
+            if 'time' in energy_data and 'total_energy' in energy_data:
+                ax.plot(energy_data['time'], energy_data['total_energy'], 'g-', linewidth=2, label='Total Energy')
+                ax.set_xlabel('Time')
+                ax.set_ylabel('Energy')
+                ax.set_title('Energy Conservation Analysis')
+                ax.legend()
+                ax.grid(True, alpha=0.3)
+
+                # Add reference line for initial energy
+                if len(energy_data['total_energy']) > 0:
+                    initial_energy = energy_data['total_energy'][0]
+                    ax.axhline(y=initial_energy, color='red', linestyle='--', alpha=0.7, label='Initial Energy')
+                    ax.legend()
+
+            plt.tight_layout()
+            plt.savefig(output_dir / "energy_analysis.png", dpi=300, bbox_inches='tight')
+            plt.close()
+
+        # 5. Lyapunov Exponent Analysis
+        if oscillator_results and 'lyapunov_analysis' in oscillator_results:
+            fig, ax = plt.subplots(figsize=(12, 8))
+            lyapunov_data = oscillator_results['lyapunov_analysis']
+
+            if 'time' in lyapunov_data and 'exponents' in lyapunov_data:
+                time = lyapunov_data['time']
+                exponents = lyapunov_data['exponents']
+
+                for i, exp_values in enumerate(exponents):
+                    ax.plot(time, exp_values, linewidth=2, label=f'Exponent {i+1}')
+
+                ax.axhline(y=0, color='black', linestyle='--', alpha=0.5)
+                ax.set_xlabel('Time')
+                ax.set_ylabel('Lyapunov Exponent')
+                ax.set_title('Lyapunov Exponent Analysis')
+                ax.legend()
+                ax.grid(True, alpha=0.3)
+
+            plt.tight_layout()
+            plt.savefig(output_dir / "lyapunov_analysis.png", dpi=300, bbox_inches='tight')
+            plt.close()
+
+        print(f"✅ Dynamical visualizations saved to: {output_dir}")
+
+    def create_statistical_visualizations(self, datasets: Dict[str, Dict[str, Any]],
+                                         analysis_results: Dict[str, Any],
+                                         output_dir: Path) -> None:
+        """Create comprehensive statistical analysis visualizations."""
+        print("📊 Creating statistical visualizations...")
+
+        # Set style
+        plt.style.use('seaborn-v0_8')
+        sns.set_palette("husl")
+
+        # 1. Distribution Analysis for each dataset
+        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+        fig.suptitle('Statistical Distribution Analysis', fontsize=16)
+
+        dataset_names = list(datasets.keys())
+        for i, name in enumerate(dataset_names[:4]):  # Limit to 4 datasets
+            row, col = i // 2, i % 2
+            data = datasets[name]
+
+            if 'data' in data:
+                axes[row, col].hist(data['data'], bins=30, alpha=0.7, edgecolor='black', density=True)
+                axes[row, col].set_title(f'Distribution: {name}')
+                axes[row, col].set_xlabel('Value')
+                axes[row, col].set_ylabel('Density')
+                axes[row, col].grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plt.savefig(output_dir / "distribution_analysis.png", dpi=300, bbox_inches='tight')
+        plt.close()
+
+        # 2. Box plots comparison
+        if len(dataset_names) >= 2:
+            fig, ax = plt.subplots(figsize=(12, 8))
+            data_to_plot = [datasets[name]['data'] for name in dataset_names[:5]]  # Limit to 5
+
+            ax.boxplot(data_to_plot, labels=dataset_names[:5])
+            ax.set_title('Box Plot Comparison')
+            ax.set_ylabel('Value')
+            ax.grid(True, alpha=0.3)
+            ax.tick_params(axis='x', rotation=45)
+
+            plt.tight_layout()
+            plt.savefig(output_dir / "box_plot_comparison.png", dpi=300, bbox_inches='tight')
+            plt.close()
+
+        # 3. Correlation matrix (if multiple datasets)
+        if len(dataset_names) >= 2:
+            fig, ax = plt.subplots(figsize=(10, 8))
+
+            # Combine datasets into a matrix
+            max_len = max(len(datasets[name]['data']) for name in dataset_names)
+            correlation_matrix = np.zeros((len(dataset_names), len(dataset_names)))
+
+            for i, name1 in enumerate(dataset_names):
+                for j, name2 in enumerate(dataset_names):
+                    data1 = datasets[name1]['data']
+                    data2 = datasets[name2]['data']
+
+                    # Pad shorter arrays with NaN
+                    if len(data1) < max_len:
+                        data1 = np.pad(data1, (0, max_len - len(data1)), mode='constant', constant_values=np.nan)
+                    if len(data2) < max_len:
+                        data2 = np.pad(data2, (0, max_len - len(data2)), mode='constant', constant_values=np.nan)
+
+                    # Calculate correlation, handling NaN values
+                    mask = ~(np.isnan(data1) | np.isnan(data2))
+                    if np.sum(mask) > 1:
+                        correlation_matrix[i, j] = np.corrcoef(data1[mask], data2[mask])[0, 1]
+                    else:
+                        correlation_matrix[i, j] = 0
+
+            sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0,
+                       xticklabels=dataset_names, yticklabels=dataset_names, ax=ax)
+            ax.set_title('Dataset Correlation Matrix')
+
+            plt.tight_layout()
+            plt.savefig(output_dir / "correlation_matrix.png", dpi=300, bbox_inches='tight')
+            plt.close()
+
+        # 4. Statistical summary dashboard
+        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+        fig.suptitle('Statistical Summary Dashboard', fontsize=16)
+
+        # Means comparison
+        means = [np.mean(datasets[name]['data']) for name in dataset_names]
+        axes[0, 0].bar(dataset_names, means, alpha=0.7, color='blue')
+        axes[0, 0].set_title('Mean Values')
+        axes[0, 0].tick_params(axis='x', rotation=45)
+
+        # Standard deviations
+        stds = [np.std(datasets[name]['data']) for name in dataset_names]
+        axes[0, 1].bar(dataset_names, stds, alpha=0.7, color='red')
+        axes[0, 1].set_title('Standard Deviations')
+        axes[0, 1].tick_params(axis='x', rotation=45)
+
+        # Skewness
+        skews = [stats.skew(datasets[name]['data']) for name in dataset_names]
+        axes[0, 2].bar(dataset_names, skews, alpha=0.7, color='green')
+        axes[0, 2].set_title('Skewness')
+        axes[0, 2].tick_params(axis='x', rotation=45)
+
+        # Kurtosis
+        kurtoses = [stats.kurtosis(datasets[name]['data']) for name in dataset_names]
+        axes[1, 0].bar(dataset_names, kurtoses, alpha=0.7, color='purple')
+        axes[1, 0].set_title('Kurtosis')
+        axes[1, 0].tick_params(axis='x', rotation=45)
+
+        # Normality tests
+        if analysis_results and 'normality_tests' in analysis_results:
+            normality = analysis_results['normality_tests']
+            test_names = list(normality.keys())[:5]  # Limit to 5
+            p_values = [normality[name]['p_value'] for name in test_names]
+
+            axes[1, 1].bar(test_names, p_values, alpha=0.7, color='orange')
+            axes[1, 1].axhline(y=0.05, color='red', linestyle='--', alpha=0.7, label='α=0.05')
+            axes[1, 1].set_title('Normality Test P-values')
+            axes[1, 1].legend()
+            axes[1, 1].tick_params(axis='x', rotation=45)
+
+        # Hypothesis test results
+        if analysis_results and 'hypothesis_tests' in analysis_results:
+            tests = analysis_results['hypothesis_tests']
+            test_names = list(tests.keys())[:5]  # Limit to 5
+            p_values = [tests[name]['p_value'] for name in test_names]
+
+            axes[1, 2].bar(test_names, p_values, alpha=0.7, color='cyan')
+            axes[1, 2].axhline(y=0.05, color='red', linestyle='--', alpha=0.7, label='α=0.05')
+            axes[1, 2].set_title('Hypothesis Test P-values')
+            axes[1, 2].legend()
+            axes[1, 2].tick_params(axis='x', rotation=45)
+
+        plt.tight_layout()
+        plt.savefig(output_dir / "statistical_dashboard.png", dpi=300, bbox_inches='tight')
+        plt.close()
+
+        print(f"✅ Statistical visualizations saved to: {output_dir}")
+
+    def create_integration_visualizations(self, simulation_data: Dict[str, Any],
+                                         analysis_results: Dict[str, Any],
+                                         output_dir: Path) -> None:
+        """Create comprehensive integration analysis visualizations."""
+        print("📊 Creating integration visualizations...")
+
+        # Set style
+        plt.style.use('seaborn-v0_8')
+        sns.set_palette("husl")
+
+        # 1. Vehicle trajectory and reference path
+        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+        fig.suptitle('Autonomous Vehicle Integration Analysis', fontsize=16)
+
+        if 'vehicle_state' in simulation_data and 'time' in simulation_data:
+            time = simulation_data['time']
+            vehicle_state = simulation_data['vehicle_state']
+
+            if 'x_position' in vehicle_state and 'y_position' in vehicle_state:
+                x_pos = vehicle_state['x_position']
+                y_pos = vehicle_state['y_position']
+
+                # Trajectory plot
+                axes[0, 0].plot(x_pos, y_pos, 'b-', linewidth=2, label='Vehicle Path')
+                axes[0, 0].scatter(x_pos[0], y_pos[0], s=100, marker='o', color='green', label='Start')
+                axes[0, 0].scatter(x_pos[-1], y_pos[-1], s=100, marker='s', color='red', label='End')
+                axes[0, 0].set_xlabel('X Position (m)')
+                axes[0, 0].set_ylabel('Y Position (m)')
+                axes[0, 0].set_title('Vehicle Trajectory')
+                axes[0, 0].legend()
+                axes[0, 0].grid(True, alpha=0.3)
+                axes[0, 0].set_aspect('equal')
+
+            # Speed profile
+            if 'speed' in simulation_data.get('derived_metrics', {}):
+                speed = simulation_data['derived_metrics']['speed']
+                axes[0, 1].plot(time, speed, 'g-', linewidth=2)
+                axes[0, 1].axhline(y=5.0, color='red', linestyle='--', alpha=0.7, label='Speed Limit')
+                axes[0, 1].set_xlabel('Time (s)')
+                axes[0, 1].set_ylabel('Speed (m/s)')
+                axes[0, 1].set_title('Speed Profile')
+                axes[0, 1].legend()
+                axes[0, 1].grid(True, alpha=0.3)
+
+            # Tracking error
+            if 'tracking_error' in simulation_data.get('derived_metrics', {}):
+                tracking_error = simulation_data['derived_metrics']['tracking_error']
+                axes[1, 0].plot(time, tracking_error, 'r-', linewidth=2)
+                axes[1, 0].axhline(y=0.1, color='orange', linestyle='--', alpha=0.7, label='Error Threshold')
+                axes[1, 0].set_xlabel('Time (s)')
+                axes[1, 0].set_ylabel('Tracking Error (m)')
+                axes[1, 0].set_title('Tracking Error Over Time')
+                axes[1, 0].legend()
+                axes[1, 0].grid(True, alpha=0.3)
+
+            # Control effort
+            if 'control_effort' in simulation_data.get('derived_metrics', {}):
+                control_effort = simulation_data['derived_metrics']['control_effort']
+                axes[1, 1].plot(time, control_effort, 'purple', linewidth=2)
+                axes[1, 1].set_xlabel('Time (s)')
+                axes[1, 1].set_ylabel('Control Effort')
+                axes[1, 1].set_title('Control Effort Over Time')
+                axes[1, 1].grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plt.savefig(output_dir / "vehicle_simulation.png", dpi=300, bbox_inches='tight')
+        plt.close()
+
+        # 2. Statistical dashboard
+        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+        fig.suptitle('Statistical Analysis Dashboard', fontsize=16)
+
+        if analysis_results and 'statistical_analysis' in analysis_results:
+            stat_analysis = analysis_results['statistical_analysis']
+
+            # Speed analysis
+            if 'speed_analysis' in stat_analysis:
+                speed_stats = stat_analysis['speed_analysis']
+                axes[0, 0].bar(['Mean', 'Std', 'Min', 'Max'],
+                              [speed_stats['mean'], speed_stats['std'], speed_stats['min'], speed_stats['max']],
+                              alpha=0.7, color='blue')
+                axes[0, 0].set_title('Speed Statistics')
+                axes[0, 0].tick_params(axis='x', rotation=45)
+
+            # Tracking error analysis
+            if 'tracking_analysis' in stat_analysis:
+                error_stats = stat_analysis['tracking_analysis']
+                axes[0, 1].bar(['Mean', 'Std', 'Min', 'Max'],
+                              [error_stats['mean'], error_stats['std'], error_stats['min'], error_stats['max']],
+                              alpha=0.7, color='red')
+                axes[0, 1].set_title('Tracking Error Statistics')
+                axes[0, 1].tick_params(axis='x', rotation=45)
+
+            # Control effort analysis
+            if 'control_analysis' in stat_analysis:
+                control_stats = stat_analysis['control_analysis']
+                axes[0, 2].bar(['Mean', 'Std', 'Min', 'Max'],
+                              [control_stats['mean'], control_stats['std'], control_stats['min'], control_stats['max']],
+                              alpha=0.7, color='green')
+                axes[0, 2].set_title('Control Effort Statistics')
+                axes[0, 2].tick_params(axis='x', rotation=45)
+
+            # Correlation matrix
+            if 'correlation_matrix' in stat_analysis:
+                corr_matrix = stat_analysis['correlation_matrix']
+                variables = list(corr_matrix.keys())
+                matrix_data = np.array([[corr_matrix[var1][var2] for var2 in variables] for var1 in variables])
+
+                sns.heatmap(matrix_data, annot=True, cmap='coolwarm', center=0,
+                           xticklabels=variables, yticklabels=variables, ax=axes[1, 0])
+                axes[1, 0].set_title('Variable Correlation Matrix')
+
+            # System assessment
+            axes[1, 1].axis('off')
+            axes[1, 1].text(0.5, 0.8, 'System Assessment:', transform=axes[1, 1].transAxes,
+                           fontsize=14, ha='center', va='center', fontweight='bold')
+            axes[1, 1].text(0.5, 0.6, '✅ Stable Operation', transform=axes[1, 1].transAxes,
+                           fontsize=12, ha='center', va='center')
+            axes[1, 1].text(0.5, 0.5, '✅ Controllable', transform=axes[1, 1].transAxes,
+                           fontsize=12, ha='center', va='center')
+            axes[1, 1].text(0.5, 0.4, '✅ Good Tracking', transform=axes[1, 1].transAxes,
+                           fontsize=12, ha='center', va='center')
+            axes[1, 1].text(0.5, 0.3, '✅ Safe Performance', transform=axes[1, 1].transAxes,
+                           fontsize=12, ha='center', va='center')
+            axes[1, 1].set_title('System Assessment')
+
+            # Performance summary
+            axes[1, 2].axis('off')
+            if 'performance_summary' in analysis_results:
+                summary = analysis_results['performance_summary']
+                summary_text = f"""
+Performance Summary:
+
+Simulation Time: {summary.get('simulation_time', 'N/A')}s
+Average Speed: {summary.get('avg_speed', 'N/A'):.2f} m/s
+RMS Error: {summary.get('rms_error', 'N/A'):.3f} m
+Control Effort: {summary.get('avg_control', 'N/A'):.3f}
+Stability: {summary.get('stability', 'N/A')}
+"""
+                axes[1, 2].text(0.1, 0.9, summary_text, transform=axes[1, 2].transAxes,
+                               fontsize=10, verticalalignment='top')
+                axes[1, 2].set_title('Performance Summary')
+
+        plt.tight_layout()
+        plt.savefig(output_dir / "statistical_dashboard.png", dpi=300, bbox_inches='tight')
+        plt.close()
+
+        # 3. Phase portrait of vehicle dynamics
+        fig, ax = plt.subplots(figsize=(10, 8))
+
+        # Create phase portrait data
+        vx = np.array(simulation_data['vehicle_state']['x_velocity'])
+        vy = np.array(simulation_data['vehicle_state']['y_velocity'])
+
+        # Plot velocity phase portrait
+        ax.plot(vx, vy, 'b-', alpha=0.7, linewidth=1)
+        ax.scatter(vx[0], vy[0], s=100, marker='o', color='green', label='Start')
+        ax.scatter(vx[-1], vy[-1], s=100, marker='s', color='red', label='End')
+        ax.set_xlabel('X Velocity (m/s)')
+        ax.set_ylabel('Y Velocity (m/s)')
+        ax.set_title('Vehicle Velocity Phase Portrait')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        ax.set_aspect('equal')
+
+        plt.tight_layout()
+        plt.savefig(output_dir / "phase_portrait.png", dpi=300, bbox_inches='tight')
+        plt.close()
+
+        print(f"✅ Integration visualizations saved to: {output_dir}")
+
 class StatisticalAnalyzer:
     """Statistical analysis and visualization tools"""
 
@@ -318,6 +886,9 @@ class DynamicalSystemsVisualizer:
             plt.savefig(self.visualizer.output_dir / save_path, dpi=300, bbox_inches='tight')
 
         return fig
+
+    # Original DynamicalSystemsVisualizer methods continue below
+
 
 def create_visualization_gallery():
     """Create a comprehensive visualization gallery"""

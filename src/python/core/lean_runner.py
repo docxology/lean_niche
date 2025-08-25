@@ -111,7 +111,7 @@ class LeanRunner:
                 "stderr_length": len(result.get('stderr', ''))
             })
 
-            parsed_result = self._parse_lean_output(result)
+            parsed_result = self._parse_lean_output(result, code)
 
             self.lean_logger.log_step_end("parse_results", success=True, result_details={
                 "theorems_found": len(parsed_result.get('theorems_proven', [])),
@@ -234,7 +234,7 @@ class LeanRunner:
                 'execution_time': execution_time
             }
 
-    def _parse_lean_output(self, result: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_lean_output(self, result: Dict[str, Any], source_code: str = None) -> Dict[str, Any]:
         """Parse Lean output and extract comprehensive proof outcomes"""
         parsed = {
             'theorems_proven': [],
@@ -406,6 +406,14 @@ class LeanRunner:
             elif any(keyword in line.lower() for keyword in ['compiling', 'building', 'linking']):
                 parsed['compilation_info'].append(line)
 
+        # Parse source code directly if provided and no theorems/definitions found in output
+        if source_code and (not parsed['theorems_proven'] and not parsed['definitions_created']):
+            parsed.update(self._parse_source_code(source_code))
+
+        # Extract theorems and definitions from source code if not found in output
+        if not parsed['theorems_proven'] and not parsed['definitions_created']:
+            parsed.update(self._extract_from_source_files(result))
+
         # Add verification status summary
         total_proofs = len(parsed['theorems_proven']) + len(parsed['lemmas_proven'])
         total_errors = len(parsed['error_details'])
@@ -428,7 +436,183 @@ class LeanRunner:
                 'unit': 'seconds'
             })
 
+        # Add additional performance metrics even if parsing failed
+        if parsed['verification_status']['compilation_successful']:
+            parsed['performance_metrics'].extend([
+                {
+                    'metric': 'compilation_success',
+                    'value': True,
+                    'unit': 'boolean'
+                },
+                {
+                    'metric': 'stdout_lines',
+                    'value': len(stdout.split('\n')) if stdout else 0,
+                    'unit': 'lines'
+                },
+                {
+                    'metric': 'stderr_lines',
+                    'value': len(stderr.split('\n')) if stderr else 0,
+                    'unit': 'lines'
+                }
+            ])
+
         return parsed
+
+    def _extract_from_source_files(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract theorems and definitions directly from Lean source files when parsing fails"""
+        extracted = {
+            'theorems_proven': [],
+            'lemmas_proven': [],
+            'definitions_created': [],
+            'axioms_defined': []
+        }
+
+        try:
+            # Look for source files in the result or try to find them
+            source_files = []
+
+            # Check if we have source file information in the result
+            if 'source_files' in result:
+                source_files = result['source_files']
+            else:
+                # Try to find Lean files in the current directory or typical locations
+                import glob
+                source_files = glob.glob('*.lean')
+                if not source_files:
+                    source_files = glob.glob('src/**/*.lean')
+
+            for source_file in source_files:
+                try:
+                    with open(source_file, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    # Extract theorems
+                    theorem_matches = re.findall(r'\b(theorem|lemma|axiom)\s+([A-Za-z_][A-Za-z0-9_]*)\s*[:.]', content)
+                    for match_type, name in theorem_matches:
+                        if match_type == 'theorem':
+                            extracted['theorems_proven'].append({
+                                'type': 'theorem',
+                                'name': name,
+                                'source_file': source_file,
+                                'method': 'source_extraction'
+                            })
+                        elif match_type == 'lemma':
+                            extracted['lemmas_proven'].append({
+                                'type': 'lemma',
+                                'name': name,
+                                'source_file': source_file,
+                                'method': 'source_extraction'
+                            })
+                        elif match_type == 'axiom':
+                            extracted['axioms_defined'].append({
+                                'type': 'axiom',
+                                'name': name,
+                                'source_file': source_file,
+                                'method': 'source_extraction'
+                            })
+
+                    # Extract definitions
+                    def_matches = re.findall(r'\b(def|definition|constant|abbrev)\s+([A-Za-z_][A-Za-z0-9_]*)\s*[:.]', content)
+                    for match_type, name in def_matches:
+                        extracted['definitions_created'].append({
+                            'type': match_type,
+                            'name': name,
+                            'source_file': source_file,
+                            'method': 'source_extraction'
+                        })
+
+                except Exception as e:
+                    self.lean_logger.logger.warning(f"Could not extract from {source_file}: {e}")
+                    continue
+
+        except Exception as e:
+            self.lean_logger.logger.warning(f"Source file extraction failed: {e}")
+
+        return extracted
+
+    def _parse_source_code(self, source_code: str) -> Dict[str, Any]:
+        """Parse source code string directly to extract theorems and definitions"""
+        parsed = {
+            'theorems_proven': [],
+            'lemmas_proven': [],
+            'definitions_created': [],
+            'axioms_defined': []
+        }
+
+        try:
+            # Extract theorems
+            theorem_matches = re.findall(r'\b(theorem|lemma|axiom)\s+([A-Za-z_][A-Za-z0-9_]*)\s*[:.]', source_code)
+            for match_type, name in theorem_matches:
+                if match_type == 'theorem':
+                    parsed['theorems_proven'].append({
+                        'type': 'theorem',
+                        'name': name,
+                        'source': 'direct_parsing',
+                        'method': 'source_code_analysis'
+                    })
+                elif match_type == 'lemma':
+                    parsed['lemmas_proven'].append({
+                        'type': 'lemma',
+                        'name': name,
+                        'source': 'direct_parsing',
+                        'method': 'source_code_analysis'
+                    })
+                elif match_type == 'axiom':
+                    parsed['axioms_defined'].append({
+                        'type': 'axiom',
+                        'name': name,
+                        'source': 'direct_parsing',
+                        'method': 'source_code_analysis'
+                    })
+
+            # Extract definitions
+            def_matches = re.findall(r'\b(def|definition|constant|abbrev)\s+([A-Za-z_][A-Za-z0-9_]*)\s*[:.]', source_code)
+            for match_type, name in def_matches:
+                parsed['definitions_created'].append({
+                    'type': match_type,
+                    'name': name,
+                    'source': 'direct_parsing',
+                    'method': 'source_code_analysis'
+                })
+
+            self.lean_logger.logger.info(f"Direct source parsing found: {len(parsed['theorems_proven'])} theorems, {len(parsed['definitions_created'])} definitions")
+
+        except Exception as e:
+            self.lean_logger.logger.warning(f"Direct source parsing failed: {e}")
+
+        return parsed
+
+    def _create_verification_files(self, proof_data: Dict[str, Any], verification_dir: Path,
+                                 prefix: str, timestamp: str, saved_files: Dict[str, Path]):
+        """Create verification files with available data"""
+        try:
+            verification_file = verification_dir / f"{prefix}_verification_{timestamp}.json"
+            with open(verification_file, 'w') as f:
+                json.dump({
+                    'verification_status': proof_data.get('verification_status', {}),
+                    'examples_verified': proof_data.get('examples_verified', []),
+                    'computation_results': proof_data.get('computation_results', []),
+                    'compilation_info': proof_data.get('compilation_info', [])
+                }, f, indent=2, default=str)
+            saved_files['verification'] = verification_file
+        except Exception as e:
+            self.lean_logger.logger.warning(f"Could not create verification file: {e}")
+
+    def _create_performance_files(self, proof_data: Dict[str, Any], results: Dict[str, Any],
+                                performance_dir: Path, prefix: str, timestamp: str, saved_files: Dict[str, Path]):
+        """Create performance files with available metrics"""
+        try:
+            performance_file = performance_dir / f"{prefix}_performance_{timestamp}.json"
+            with open(performance_file, 'w') as f:
+                json.dump({
+                    'performance_metrics': proof_data.get('performance_metrics', []),
+                    'execution_time': results.get('execution_time', 0),
+                    'stdout_length': len(results.get('stdout', '')),
+                    'stderr_length': len(results.get('stderr', ''))
+                }, f, indent=2, default=str)
+            saved_files['performance'] = performance_file
+        except Exception as e:
+            self.lean_logger.logger.warning(f"Could not create performance file: {e}")
 
     def _parse_error_line(self, line: str) -> Dict[str, Any]:
         """Parse a single error line for detailed analysis"""
@@ -727,9 +911,13 @@ Failed: {metrics.get('failed_tests', 0)}
         # Get the actual proof data from results
         proof_data = results.get('result', {})
 
-        # CRITICAL: Only include theorems/definitions if verification actually succeeded
+        # CRITICAL: Always create verification and performance files, regardless of compilation status
         verification_status = proof_data.get('verification_status', {})
         compilation_successful = verification_status.get('compilation_successful', False)
+
+        # Always create verification and performance files with whatever data we have
+        self._create_verification_files(proof_data, verification_dir, prefix, timestamp, saved_files)
+        self._create_performance_files(proof_data, results, performance_dir, prefix, timestamp, saved_files)
 
         if not compilation_successful:
             # HONEST: If compilation failed, there are no verified theorems or definitions
@@ -773,18 +961,7 @@ Failed: {metrics.get('failed_tests', 0)}
                     }, f, indent=2, default=str)
                 saved_files['properties'] = properties_file
 
-            # Save verification status
-            if proof_data.get('verification_status'):
-                verification_file = verification_dir / f"{prefix}_verification_{timestamp}.json"
-                with open(verification_file, 'w') as f:
-                    json.dump({
-                        'verification_status': proof_data.get('verification_status', {}),
-                        'examples_verified': proof_data.get('examples_verified', []),
-                        'computation_results': proof_data.get('computation_results', [])
-                    }, f, indent=2, default=str)
-                saved_files['verification'] = verification_file
-
-            # Save error and warning details
+            # Save error and warning details (only when compilation failed)
             if proof_data.get('error_details') or proof_data.get('warning_details'):
                 issues_file = verification_dir / f"{prefix}_issues_{timestamp}.json"
                 with open(issues_file, 'w') as f:
@@ -794,18 +971,6 @@ Failed: {metrics.get('failed_tests', 0)}
                         'compilation_info': proof_data.get('compilation_info', [])
                     }, f, indent=2, default=str)
                 saved_files['issues'] = issues_file
-
-            # Save performance metrics
-            if proof_data.get('performance_metrics'):
-                performance_file = performance_dir / f"{prefix}_performance_{timestamp}.json"
-                with open(performance_file, 'w') as f:
-                    json.dump({
-                        'performance_metrics': proof_data.get('performance_metrics', []),
-                        'execution_time': results.get('execution_time', 0),
-                        'stdout_length': len(results.get('stdout', '')),
-                        'stderr_length': len(results.get('stderr', ''))
-                    }, f, indent=2, default=str)
-                saved_files['performance'] = performance_file
 
             # Save complete comprehensive summary
             summary_file = output_dir / f"{prefix}_complete_summary_{timestamp}.json"

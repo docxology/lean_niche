@@ -1,3 +1,0 @@
-import LeanNiche.generated_artifacts.control_theory_artifacts
-#check num_pid_controllers
-#check num_pid_controllers_eq

@@ -27,14 +27,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 try:
     from src.python.core.orchestrator_base import LeanNicheOrchestratorBase
-    # Alias for compatibility with existing code
-    DynamicalSystemsVisualizer = None
+    from src.python.dynamical import DynamicalSystemsAnalyzer, LogisticMapAnalyzer, NonlinearOscillatorAnalyzer
+    from src.python.visualization import MathematicalVisualizer
 except ImportError:
     try:
         # Fall back to older import path if available
         from python.core.orchestrator_base import LeanNicheOrchestratorBase
-        # Alias for compatibility with existing code
-        DynamicalSystemsVisualizer = None
+        from python.dynamical import DynamicalSystemsAnalyzer, LogisticMapAnalyzer, NonlinearOscillatorAnalyzer
+        from python.visualization import MathematicalVisualizer
     except Exception as e:
         print(f"❌ Import error: {e}")
         print("Please run from the LeanNiche project root after setup")
@@ -229,79 +229,39 @@ end DynamicalArtifacts
         """Analyze the logistic map for different parameter values."""
         print("🧮 Analyzing logistic map dynamics...")
 
-        # Define logistic map
-        def logistic_map(r, x):
-            return r * x * (1 - x)
+        # Initialize the logistic map analyzer
+        analyzer = LogisticMapAnalyzer()
 
         # Parameter ranges for analysis
-        r_values = np.linspace(2.5, 4.0, 300)
-        transient = 100  # Points to discard
-        iterations = 200  # Points to keep
-
-        results = {
-            'bifurcation_data': [],
-            'lyapunov_exponents': [],
-            'chaos_regions': []
+        r_params = {
+            'r_min': 2.5,
+            'r_max': 4.0,
+            'num_points': 300,
+            'transient': 100,
+            'iterations': 200
         }
 
-        print("  📈 Computing bifurcation diagram...")
-        for r in r_values:
-            x = 0.5  # Initial condition
+        # Use the extracted dynamical systems module
+        results = analyzer.analyze_logistic_map(r_params)
 
-            # Iterate to remove transient
-            for _ in range(transient):
-                x = logistic_map(r, x)
-
-            # Collect bifurcation points
-            bifurcation_points = []
-            for _ in range(iterations):
-                x = logistic_map(r, x)
-                if not np.isnan(x) and not np.isinf(x):
-                    bifurcation_points.append(float(x))
-
-            results['bifurcation_data'].append({
-                'r': float(r),
-                'points': bifurcation_points
-            })
-
-            # Compute Lyapunov exponent approximation
-            if len(bifurcation_points) > 1:
-                # Simple Lyapunov exponent calculation
-                lyapunov_sum = 0
-                for i in range(1, min(50, len(bifurcation_points))):
-                    if abs(bifurcation_points[i-1]) > 1e-10:
-                        derivative_approx = abs(r * (1 - 2 * bifurcation_points[i-1]))
-                        if derivative_approx > 0:
-                            lyapunov_sum += np.log(derivative_approx)
-
-                lyapunov_exp = lyapunov_sum / min(50, len(bifurcation_points))
-                results['lyapunov_exponents'].append({
-                    'r': float(r),
-                    'lyapunov_exponent': float(lyapunov_exp)
-                })
-
-                # Detect chaos (positive Lyapunov exponent)
-                if lyapunov_exp > 0.005:  # Small threshold
-                    results['chaos_regions'].append(float(r))
-
-        print(f"✅ Analyzed {len(r_values)} parameter values")
+        print("✅ Logistic map analysis complete")
         return results
 
     def analyze_nonlinear_oscillator(self):
         """Analyze a nonlinear oscillator system."""
         print("⚡ Analyzing nonlinear oscillator...")
 
-        # Define nonlinear oscillator: dx/dt = y, dy/dt = -x - x^3 - 0.1*y
-        def nonlinear_oscillator(t, state):
-            x, y = state
-            dxdt = y
-            dydt = -x - x**3 - 0.1 * y
-            return np.array([dxdt, dydt])
+        # Initialize the nonlinear oscillator analyzer
+        analyzer = NonlinearOscillatorAnalyzer()
 
-        # Time parameters
-        t_span = (0, 50)
-        dt = 0.01
-        t = np.arange(t_span[0], t_span[1], dt)
+        # System parameters
+        system_params = {
+            't_span': (0, 50),
+            'dt': 0.01,
+            'alpha': -1.0,  # x term coefficient
+            'beta': -1.0,    # x^3 term coefficient
+            'gamma': -0.1    # y term coefficient
+        }
 
         # Initial conditions
         initial_conditions = [
@@ -311,160 +271,21 @@ end DynamicalArtifacts
             [0.5, 0.5],    # With initial velocity
         ]
 
-        trajectories = []
-        energies = []
-
-        print("  📈 Computing trajectories...")
-        for i, ic in enumerate(initial_conditions):
-            print(f"    Trajectory {i+1}/4: x0={ic[0]}, y0={ic[1]}")
-
-            # Simple Euler integration (could use scipy.integrate.odeint)
-            state = np.array(ic)
-            trajectory = [state.copy()]
-            energy = [0.5 * state[1]**2 + 0.5 * state[0]**2 + 0.25 * state[0]**4]  # Energy
-
-            for _ in t[1:]:
-                # Euler step
-                derivative = nonlinear_oscillator(_, state)
-                state = state + dt * derivative
-                trajectory.append(state.copy())
-                current_energy = 0.5 * state[1]**2 + 0.5 * state[0]**2 + 0.25 * state[0]**4
-                energy.append(current_energy)
-
-            trajectories.append({
-                'initial_condition': ic,
-                'trajectory': np.array(trajectory),
-                'energy': np.array(energy)
-            })
+        # Use the extracted dynamical systems module
+        results = analyzer.analyze_nonlinear_oscillator(system_params, initial_conditions)
 
         print("✅ Nonlinear oscillator analysis complete")
-        return {
-            'trajectories': trajectories,
-            'time': t,
-            'system_name': 'Nonlinear Oscillator: dx/dt = y, dy/dt = -x - x³ - 0.1y'
-        }
+        return results
 
     def create_visualizations(self, logistic_results, oscillator_results):
         """Create comprehensive visualizations of the dynamical systems."""
         print("📊 Creating dynamical systems visualizations...")
 
-        # 1. Logistic map bifurcation diagram
-        print("  📈 Creating bifurcation diagram...")
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
+        # Initialize the mathematical visualizer
+        visualizer = MathematicalVisualizer()
 
-        # Plot bifurcation points
-        for data in logistic_results['bifurcation_data']:
-            r = data['r']
-            points = data['points']
-            ax1.scatter([r] * len(points), points, s=0.1, c='black', alpha=0.7)
-
-        ax1.set_xlabel('Parameter r')
-        ax1.set_ylabel('Fixed Points')
-        ax1.set_title('Logistic Map Bifurcation Diagram')
-        ax1.grid(True, alpha=0.3)
-
-        # Plot Lyapunov exponents
-        if logistic_results['lyapunov_exponents']:
-            r_values = [d['r'] for d in logistic_results['lyapunov_exponents']]
-            lyapunov_values = [d['lyapunov_exponent'] for d in logistic_results['lyapunov_exponents']]
-            ax2.plot(r_values, lyapunov_values, 'b-', linewidth=1)
-            ax2.axhline(y=0, color='red', linestyle='--', alpha=0.7, label='Chaos Boundary')
-            ax2.set_xlabel('Parameter r')
-            ax2.set_ylabel('Lyapunov Exponent')
-            ax2.set_title('Lyapunov Exponents (Chaos Detection)')
-            ax2.grid(True, alpha=0.3)
-            ax2.legend()
-
-        plt.tight_layout()
-        plt.savefig(self.viz_dir / "bifurcation_analysis.png", dpi=300, bbox_inches='tight')
-        plt.close()
-
-        # 2. Chaos regions visualization
-        if logistic_results['chaos_regions']:
-            fig, ax = plt.subplots(figsize=(12, 4))
-            ax.hist(logistic_results['chaos_regions'], bins=30, alpha=0.7,
-                   color='red', edgecolor='black')
-            ax.set_xlabel('Parameter r')
-            ax.set_ylabel('Chaos Frequency')
-            ax.set_title('Regions of Chaotic Behavior in Logistic Map')
-            ax.grid(True, alpha=0.3)
-            plt.tight_layout()
-            plt.savefig(self.viz_dir / "chaos_regions.png", dpi=300, bbox_inches='tight')
-            plt.close()
-
-        # 3. Nonlinear oscillator trajectories
-        print("  📈 Creating phase portraits...")
-        fig, axes = plt.subplots(2, 2, figsize=(14, 12))
-        axes = axes.flatten()
-
-        colors = ['blue', 'red', 'green', 'orange']
-
-        for i, trajectory_data in enumerate(oscillator_results['trajectories']):
-            ax = axes[i]
-            trajectory = trajectory_data['trajectory']
-            x_vals = trajectory[:, 0]
-            y_vals = trajectory[:, 1]
-
-            # Plot phase portrait
-            ax.plot(x_vals, y_vals, color=colors[i], linewidth=1, alpha=0.8)
-            ax.plot(x_vals[0], y_vals[0], 'o', color=colors[i], markersize=8,
-                   label=f'IC: ({trajectory_data["initial_condition"][0]}, {trajectory_data["initial_condition"][1]})')
-
-            ax.set_xlabel('Position x')
-            ax.set_ylabel('Velocity y')
-            ax.set_title(f'Trajectory {i+1}')
-            ax.grid(True, alpha=0.3)
-            ax.legend()
-            ax.set_aspect('equal')
-
-        plt.suptitle('Nonlinear Oscillator Phase Portraits', fontsize=16)
-        plt.tight_layout()
-        plt.savefig(self.viz_dir / "phase_portraits.png", dpi=300, bbox_inches='tight')
-        plt.close()
-
-        # 4. Energy conservation analysis
-        fig, ax = plt.subplots(figsize=(12, 8))
-
-        for i, trajectory_data in enumerate(oscillator_results['trajectories']):
-            energy = trajectory_data['energy']
-            time_steps = len(energy)
-            time_vals = oscillator_results['time'][:time_steps]
-
-            ax.plot(time_vals, energy, color=colors[i], linewidth=1,
-                   label=f'Trajectory {i+1}')
-
-        ax.set_xlabel('Time')
-        ax.set_ylabel('Total Energy')
-        ax.set_title('Energy Conservation in Nonlinear Oscillator')
-        ax.grid(True, alpha=0.3)
-        ax.legend()
-
-        plt.tight_layout()
-        plt.savefig(self.viz_dir / "energy_conservation.png", dpi=300, bbox_inches='tight')
-        plt.close()
-
-        # 5. Time series plots
-        fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-        axes = axes.flatten()
-
-        for i, trajectory_data in enumerate(oscillator_results['trajectories']):
-            ax = axes[i]
-            trajectory = trajectory_data['trajectory']
-            time_steps = len(trajectory)
-            time_vals = oscillator_results['time'][:time_steps]
-
-            ax.plot(time_vals, trajectory[:, 0], 'b-', linewidth=1, label='Position x')
-            ax.plot(time_vals, trajectory[:, 1], 'r-', linewidth=1, label='Velocity y')
-            ax.set_xlabel('Time')
-            ax.set_ylabel('State Variables')
-            ax.set_title(f'Time Series {i+1}')
-            ax.grid(True, alpha=0.3)
-            ax.legend()
-
-        plt.suptitle('Nonlinear Oscillator Time Series', fontsize=16)
-        plt.tight_layout()
-        plt.savefig(self.viz_dir / "time_series.png", dpi=300, bbox_inches='tight')
-        plt.close()
+        # Use the extracted visualization module
+        visualizer.create_dynamical_visualizations(logistic_results, oscillator_results, self.viz_dir)
 
         print(f"✅ Visualizations saved to: {self.viz_dir}")
 

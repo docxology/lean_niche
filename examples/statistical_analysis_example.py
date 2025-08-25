@@ -28,12 +28,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 try:
     # Prefer explicit src package imports when running under tests
     from src.python.core.orchestrator_base import LeanNicheOrchestratorBase
-    from src.python.visualization.visualization import StatisticalAnalyzer
+    from src.python.statistical import StatisticalAnalyzer, DataGenerator
+    from src.python.visualization import MathematicalVisualizer
 except ImportError:
     try:
         # Fall back to older import path if available
         from python.core.orchestrator_base import LeanNicheOrchestratorBase
-        from python.visualization.visualization import StatisticalAnalyzer
+        from python.statistical import StatisticalAnalyzer, DataGenerator
+        from python.visualization import MathematicalVisualizer
     except Exception as e:
         print(f"❌ Import error: {e}")
         print("Please run from the LeanNiche project root after setup")
@@ -85,43 +87,19 @@ class StatisticalAnalysisOrchestrator(LeanNicheOrchestratorBase):
         """Generate realistic sample data for analysis."""
         print("📊 Generating sample datasets...")
 
-        np.random.seed(42)  # For reproducibility
+        # Initialize the data generator
+        data_generator = DataGenerator(seed=42)
 
-        # Dataset 1: Human heights (normal distribution)
-        heights = np.random.normal(170, 10, 100)
-
-        # Dataset 2: Exam scores (beta distribution)
-        scores = np.random.beta(2, 5, 80) * 100
-
-        # Dataset 3: Reaction times (exponential distribution)
-        reaction_times = np.random.exponential(0.5, 60)
-
-        # Dataset 4: Before/after treatment (paired data)
-        before_treatment = np.random.normal(100, 15, 50)
-        after_treatment = before_treatment + np.random.normal(-5, 8, 50)
-
-        datasets = {
-            'heights': {
-                'data': heights,
-                'name': 'Human Heights (cm)',
-                'description': 'Normally distributed heights of 100 adults'
-            },
-            'scores': {
-                'data': scores,
-                'name': 'Exam Scores (%)',
-                'description': 'Beta-distributed exam scores of 80 students'
-            },
-            'reaction_times': {
-                'data': reaction_times,
-                'name': 'Reaction Times (s)',
-                'description': 'Exponentially distributed reaction times'
-            },
-            'treatment': {
-                'data': {'before': before_treatment, 'after': after_treatment},
-                'name': 'Treatment Effect',
-                'description': 'Paired data showing treatment effect'
-            }
+        # Define datasets to generate
+        datasets_config = {
+            'heights': {'name': 'Human Heights (cm)', 'description': 'Normally distributed heights of 100 adults'},
+            'scores': {'name': 'Exam Scores (%)', 'description': 'Beta-distributed exam scores of 80 students'},
+            'reaction_times': {'name': 'Reaction Times (s)', 'description': 'Exponentially distributed reaction times'},
+            'treatment': {'name': 'Treatment Effect', 'description': 'Paired data showing treatment effect'}
         }
+
+        # Use the extracted statistical module
+        datasets = data_generator.generate_sample_data(datasets_config)
 
         # Save datasets
         for name, dataset in datasets.items():
@@ -136,37 +114,11 @@ class StatisticalAnalysisOrchestrator(LeanNicheOrchestratorBase):
         """Perform comprehensive statistical analysis on all datasets."""
         print("🔬 Performing comprehensive statistical analysis...")
 
-        analysis_results = {}
+        # Initialize the statistical analyzer
+        analyzer = StatisticalAnalyzer()
 
-        for name, dataset in datasets.items():
-            print(f"  📈 Analyzing {dataset['name']}...")
-
-            if name == 'treatment':
-                # Paired t-test analysis
-                before = dataset['data']['before']
-                after = dataset['data']['after']
-
-                analysis_results[name] = {
-                    'dataset_info': dataset,
-                    'analysis_type': 'paired_t_test',
-                    'sample_size': len(before),
-                    'before_stats': self._compute_basic_stats(before),
-                    'after_stats': self._compute_basic_stats(after),
-                    'difference': (after - before).tolist(),
-                    'effect_size': float(np.mean(after - before) / np.std(after - before)),
-                    'confidence_interval': self._compute_confidence_interval(after - before)
-                }
-            else:
-                # Standard statistical analysis
-                data = dataset['data']
-                analysis_results[name] = {
-                    'dataset_info': dataset,
-                    'analysis_type': 'descriptive_statistics',
-                    'sample_size': len(data),
-                    'basic_stats': self._compute_basic_stats(data),
-                    'distribution_test': self._test_distribution_normality(data),
-                    'confidence_interval': self._compute_confidence_interval(data)
-                }
+        # Use the extracted statistical module
+        analysis_results = analyzer.perform_comprehensive_analysis(datasets)
 
         # Save analysis results
         results_file = self.reports_dir / "analysis_results.json"
@@ -238,129 +190,11 @@ class StatisticalAnalysisOrchestrator(LeanNicheOrchestratorBase):
         """Create comprehensive visualizations of the analysis."""
         print("📊 Creating statistical visualizations...")
 
-        # Set style
-        plt.style.use('seaborn-v0_8')
-        sns.set_palette("husl")
+        # Initialize the mathematical visualizer
+        visualizer = MathematicalVisualizer()
 
-        # 1. Distribution plots for each dataset
-        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-        axes = axes.flatten()
-
-        for i, (name, dataset) in enumerate(datasets.items()):
-            if i < 4:
-                ax = axes[i]
-                if name == 'treatment':
-                    data_before = dataset['data']['before']
-                    data_after = dataset['data']['after']
-
-                    ax.hist(data_before, alpha=0.7, label='Before', bins=15)
-                    ax.hist(data_after, alpha=0.7, label='After', bins=15)
-                    ax.set_title(f"{dataset['name']} Distribution")
-                    ax.legend()
-                else:
-                    data = dataset['data']
-                    ax.hist(data, alpha=0.7, bins=20, edgecolor='black')
-                    ax.set_title(f"{dataset['name']} Distribution")
-                    ax.set_xlabel(dataset['name'])
-                    ax.set_ylabel('Frequency')
-
-        plt.tight_layout()
-        plt.savefig(self.viz_dir / "distribution_plots.png", dpi=300, bbox_inches='tight')
-        plt.close()
-
-        # 2. Box plots comparison
-        fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-
-        # Heights vs Scores
-        if 'heights' in datasets and 'scores' in datasets:
-            box_data = [datasets['heights']['data'], datasets['scores']['data']]
-            box_labels = ['Heights (cm)', 'Scores (%)']
-            axes[0].boxplot(box_data, labels=box_labels)
-            axes[0].set_title('Heights vs Exam Scores')
-            axes[0].set_ylabel('Value')
-
-        # Reaction times
-        if 'reaction_times' in datasets:
-            axes[1].boxplot([datasets['reaction_times']['data']], labels=['Reaction Times (s)'])
-            axes[1].set_title('Reaction Time Distribution')
-            axes[1].set_ylabel('Time (seconds)')
-
-        # Treatment effect
-        if 'treatment' in analysis_results:
-            treatment_data = analysis_results['treatment']['difference']
-            axes[2].boxplot([treatment_data], labels=['Treatment Effect'])
-            axes[2].set_title('Treatment Effect Distribution')
-            axes[2].axhline(y=0, color='red', linestyle='--', alpha=0.7)
-            axes[2].set_ylabel('Change in Measurement')
-
-        plt.tight_layout()
-        plt.savefig(self.viz_dir / "box_plots.png", dpi=300, bbox_inches='tight')
-        plt.close()
-
-        # 3. Statistical summary plot
-        fig, ax = plt.subplots(figsize=(12, 8))
-
-        # Prepare data for summary plot
-        dataset_names = []
-        means = []
-        confidence_lower = []
-        confidence_upper = []
-
-        for name, result in analysis_results.items():
-            if name != 'treatment':
-                dataset_names.append(result['dataset_info']['name'])
-                stats = result['basic_stats']
-                conf = result['confidence_interval']
-
-                means.append(stats['mean'])
-                confidence_lower.append(conf['lower'])
-                confidence_upper.append(conf['upper'])
-
-        if dataset_names:
-            y_pos = np.arange(len(dataset_names))
-            ax.errorbar(means, y_pos, xerr=[np.array(means) - np.array(confidence_lower),
-                                           np.array(confidence_upper) - np.array(means)],
-                       fmt='o', capsize=5, capthick=2, elinewidth=2)
-            ax.set_yticks(y_pos)
-            ax.set_yticklabels(dataset_names)
-            ax.set_xlabel('Mean Value')
-            ax.set_title('Statistical Summary with 95% Confidence Intervals')
-            ax.grid(True, alpha=0.3)
-
-        plt.tight_layout()
-        plt.savefig(self.viz_dir / "statistical_summary.png", dpi=300, bbox_inches='tight')
-        plt.close()
-
-        # 4. Treatment effect plot
-        if 'treatment' in analysis_results:
-            fig, ax = plt.subplots(figsize=(10, 6))
-
-            treatment_result = analysis_results['treatment']
-            before_data = treatment_result['before_stats']
-            after_data = treatment_result['after_stats']
-            diff_data = treatment_result['difference']
-
-            # Create bar plot
-            categories = ['Before', 'After', 'Difference']
-            means_plot = [before_data['mean'], after_data['mean'], np.mean(diff_data)]
-            errors = [before_data['std'], after_data['std'], np.std(diff_data)]
-
-            bars = ax.bar(categories, means_plot, yerr=errors, capsize=5,
-                         color=['skyblue', 'lightcoral', 'lightgreen'], alpha=0.7)
-
-            ax.set_ylabel('Measurement Value')
-            ax.set_title('Treatment Effect Analysis')
-            ax.grid(True, alpha=0.3)
-
-            # Add value labels on bars
-            for bar in bars:
-                height = bar.get_height()
-                ax.text(bar.get_x() + bar.get_width()/2., height,
-                       '.2f', ha='center', va='bottom')
-
-            plt.tight_layout()
-            plt.savefig(self.viz_dir / "treatment_effect.png", dpi=300, bbox_inches='tight')
-            plt.close()
+        # Use the extracted visualization module
+        visualizer.create_statistical_visualizations(datasets, analysis_results, self.viz_dir)
 
         print(f"✅ Visualizations saved to: {self.viz_dir}")
 
