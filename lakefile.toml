@@ -4,12 +4,12 @@ description = "Advanced Deep Research Environment for Mathematics and Dynamical 
 
 [[_lean_lib]]
 name = "LeanNiche"
-srcDir = "src/lean/core"
+srcDir = "src/lean/LeanNiche"
 
 [[lean_exe]]
 name = "lean_niche"
 root = "Main"
-srcDir = "src/lean/core"
+srcDir = "src/lean/LeanNiche"
 
 [[lean_exe]]
 name = "test_suite"
