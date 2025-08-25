@@ -245,3 +245,228 @@ end Test"""
 
         for env in expected_envs:
             assert env in self.converter.environment_map, f"Missing environment: {env}"
+
+    def test_convert_complex_theorem(self):
+        """Test conversion of complex theorem with multiple quantifiers"""
+        lean_theorem = """
+theorem complex_limit : ∀ ε > 0, ∃ δ > 0, ∀ x : ℝ,
+  |x - a| < δ → |f(x) - L| < ε :=
+by
+  intros ε hε
+  exists δ
+  intros x h_dist
+  -- proof here
+"""
+        result = self.converter.convert_theorem(lean_theorem.strip())
+
+        assert r"\begin{theorem}{complex_limit}" in result
+        assert r"\forall \epsilon > 0" in result
+        assert r"\exists \delta > 0" in result
+        assert r"\mathbb{R}" in result
+
+    def test_convert_inductive_definition(self):
+        """Test conversion of inductive definitions"""
+        lean_inductive = """
+inductive even : ℕ → Prop
+  | even_zero : even 0
+  | even_succ : ∀ n, even n → even (n + 2)
+"""
+        result = self.converter.convert_definition(lean_inductive.strip())
+
+        assert r"\begin{definition}{even}" in result
+        assert r"even_zero" in result
+        assert r"even_succ" in result
+
+    def test_convert_structure(self):
+        """Test conversion of structure definitions"""
+        lean_structure = """
+structure Complex where
+  real_part : ℝ
+  imag_part : ℝ
+"""
+        result = self.converter.convert_definition(lean_structure.strip())
+
+        assert r"\begin{definition}{Complex}" in result
+        assert r"real_part : \mathbb{R}" in result
+        assert r"imag_part : \mathbb{R}" in result
+
+    def test_convert_lean_tactics(self):
+        """Test conversion of Lean tactics and proof structures"""
+        lean_proof = """
+theorem tactic_test : ∀ n m : ℕ, n ≤ m ∨ m < n := by
+  cases n
+  · right; exact m.zero_lt_succ
+  · intro n'
+    cases m
+    · left; exact n'.zero_le
+    · intro m'
+      exact le_or_lt n' m'
+"""
+        result = self.converter.convert_expression(lean_proof)
+
+        assert "cases n" in result
+        assert "exact" in result
+        assert r"n \leq m \lor m < n" in result
+
+    def test_convert_lean_notation(self):
+        """Test conversion of advanced Lean notation"""
+        # Test lambda notation
+        expr = "λ x : ℝ, x + 1"
+        result = self.converter.convert_expression(expr)
+        assert r"\lambda x : \mathbb{R}, x + 1" in result
+
+        # Test pattern matching
+        expr = "match n with | 0 => true | _ => false"
+        result = self.converter.convert_expression(expr)
+        assert "match n with" in result
+
+        # Test let bindings
+        expr = "let x := 5; x + x"
+        result = self.converter.convert_expression(expr)
+        assert "let x := 5; x + x" in result
+
+    def test_convert_mathematical_sets(self):
+        """Test conversion of set theory notation"""
+        expr = "{ x ∈ ℝ | x ≥ 0 }"
+        result = self.converter.convert_expression(expr)
+        assert r"\left\{ x \in \mathbb{R} \mid x \geq 0 \right\}" in result
+
+        expr = "A ∩ B ∪ C"
+        result = self.converter.convert_expression(expr)
+        assert r"A \cap B \cup C" in result
+
+    def test_convert_calculus_notation(self):
+        """Test conversion of calculus and analysis notation"""
+        expr = "lim_{x → a} f(x) = L"
+        result = self.converter.convert_expression(expr)
+        assert r"\lim_{x \rightarrow a}" in result
+
+        expr = "∫_{0}^{1} f(x) dx"
+        result = self.converter.convert_expression(expr)
+        assert r"\int_{0}^{1}" in result
+
+        expr = "d/dx f(x)"
+        result = self.converter.convert_expression(expr)
+        assert r"d/dx" in result
+
+    def test_convert_linear_algebra(self):
+        """Test conversion of linear algebra notation"""
+        expr = "A_{i,j} v_j"
+        result = self.converter.convert_expression(expr)
+        assert "A_{i,j} v_j" in result
+
+        expr = "det(A)"
+        result = self.converter.convert_expression(expr)
+        assert r"\text{det}(A)" in result
+
+    def test_convert_probability(self):
+        """Test conversion of probability notation"""
+        expr = "P(X = x) = ∑_{n=0}^∞ e^{-λ} λ^n / n!"
+        result = self.converter.convert_expression(expr)
+        assert r"\text{P}(X = x)" in result
+        assert r"\sum_{n=0}^\infty" in result
+
+    def test_convert_file_with_multiple_namespaces(self):
+        """Test file conversion with multiple namespaces"""
+        lean_content = """
+namespace Math.Logic
+
+theorem logic_theorem : ∀ p q : Prop, p ∧ q → p := by
+  intro h; exact h.left
+
+end Math.Logic
+
+namespace Math.Arithmetic
+
+def factorial : ℕ → ℕ
+  | 0 => 1
+  | n + 1 => (n + 1) * factorial n
+
+end Math.Arithmetic
+"""
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.lean', delete=False) as f:
+            f.write(lean_content)
+            temp_file = Path(f.name)
+
+        try:
+            result = self.converter.convert_file(temp_file)
+
+            assert r"\section{Math.Logic}" in result
+            assert r"\section{Math.Arithmetic}" in result
+            assert r"\begin{theorem}{logic_theorem}" in result
+            assert r"\begin{definition}{factorial}" in result
+
+        finally:
+            os.unlink(temp_file)
+
+    def test_convert_file_with_comments_and_docs(self):
+        """Test file conversion with comments and documentation"""
+        lean_content = """
+/-!
+# Complex Analysis Module
+
+This module provides complex analysis foundations.
+-/
+
+/--
+Euler's formula for complex numbers.
+-/
+theorem euler_formula : ∀ z : ℂ, exp(i * z) = cos(z) + i * sin(z) := by
+  -- This is a fundamental result in complex analysis
+  sorry
+
+/-- Complex conjugate -/
+def conj (z : ℂ) : ℂ := ⟨z.re, -z.im⟩
+
+/-- Complex magnitude -/
+def magnitude (z : ℂ) : ℝ := sqrt(z.re² + z.im²)
+"""
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.lean', delete=False) as f:
+            f.write(lean_content)
+            temp_file = Path(f.name)
+
+        try:
+            result = self.converter.convert_file(temp_file)
+
+            assert r"\section{Complex Analysis Module}" in result
+            assert r"\begin{theorem}{euler_formula}" in result
+            assert r"\begin{definition}{conj}" in result
+            assert r"\begin{definition}{magnitude}" in result
+
+        finally:
+            os.unlink(temp_file)
+
+    def test_error_handling(self):
+        """Test error handling in file conversion"""
+        # Test with invalid file path
+        with pytest.raises(FileNotFoundError):
+            self.converter.convert_file(Path("/nonexistent/path.lean"))
+
+        # Test with empty file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.lean', delete=False) as f:
+            temp_file = Path(f.name)
+
+        try:
+            result = self.converter.convert_file(temp_file)
+            assert r"\begin{document}" in result
+            assert r"\end{document}" in result
+
+        finally:
+            os.unlink(temp_file)
+
+    def test_symbol_edge_cases(self):
+        """Test symbol conversion edge cases"""
+        # Test empty string
+        assert self.converter.convert_symbol("") == ""
+
+        # Test multi-character symbols
+        expr = "∃! x, P(x)"
+        result = self.converter.convert_expression(expr)
+        assert r"\exists!" in result
+
+        # Test symbols in context
+        expr = "∀ε>0,∃δ>0"
+        result = self.converter.convert_expression(expr)
+        assert r"\forall\epsilon>0,\exists\delta>0" in result

@@ -197,7 +197,7 @@ jobs:
 
             if avg_success_rate >= 70:
                 health_status = 'excellent'
-                recommendations = ['All Lean methods working perfectly', 'Continue regular monitoring']
+                recommendations = ['All Lean methods working correctly', 'Continue regular monitoring']
             elif avg_success_rate >= 50:
                 health_status = 'good'
                 recommendations = ['Lean methods working well', 'Monitor for any degradation']
