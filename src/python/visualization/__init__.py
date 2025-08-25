@@ -8,6 +8,7 @@ from .visualization import (
     StatisticalAnalyzer,
     DynamicalSystemsVisualizer,
     create_visualization_gallery,
+    console,
 )
 
 __all__ = [
@@ -15,4 +16,5 @@ __all__ = [
     'StatisticalAnalyzer',
     'DynamicalSystemsVisualizer',
     'create_visualization_gallery',
+    'console',
 ]

@@ -33,13 +33,13 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 try:
-    from python.core.orchestrator_base import LeanNicheOrchestratorBase
+    from src.python.core.orchestrator_base import LeanNicheOrchestratorBase
     # Alias for compatibility with existing code
     DynamicalSystemsVisualizer = None
-except ImportError as e:
+except Exception as e:
     print(f"❌ Import error: {e}")
     print("Please run from the LeanNiche project root after setup")
-    sys.exit(1)
+    raise
 
 class IntegrationShowcaseOrchestrator(LeanNicheOrchestratorBase):
     """Comprehensive orchestrator demonstrating LeanNiche integration capabilities (uses LeanNicheOrchestratorBase)."""

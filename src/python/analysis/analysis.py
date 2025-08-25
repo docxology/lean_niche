@@ -368,34 +368,37 @@ def create_analysis_gallery():
     analyzer = MathematicalAnalyzer()
 
     # Example 1: Function analysis
-    console.print("\\n1. 📈 Function Analysis", style="bold blue")
+    console.print("\n1. 📈 Function Analysis", style="bold blue")
     def quadratic(x):
         return x**2 - 2*x + 1
 
-    analysis = analyzer.analyze_function(quadratic, (-3, 5), "Quadratic Function Analysis", "quadratic_analysis.txt")
-    console.print("   ✅ Completed function analysis"    console.print(".2f"    console.print(".4f"
+    analysis = analyzer.analyze_function(
+        quadratic, (-3, 5), "Quadratic Function Analysis", "quadratic_analysis.txt"
+    )
+    console.print("   ✅ Completed function analysis")
+
     # Example 2: Numerical integration
-    console.print("\\n2. ∫ Numerical Integration", style="bold blue")
+    console.print("\n2. ∫ Numerical Integration", style="bold blue")
     def integrand(x):
         return np.sin(x) * np.exp(-x/2)
 
     integral_result = analyzer.numerical_integration(integrand, 0, 5)
-    console.print("   ✅ Completed numerical integration"    console.print(".4f"
+    console.print(f"   ✅ Completed numerical integration: {integral_result.get('result', 'N/A')}")
+
     # Example 3: Symbolic analysis
-    console.print("\\n3. 🔣 Symbolic Analysis", style="bold blue")
+    console.print("\n3. 🔣 Symbolic Analysis", style="bold blue")
     symbolic_result = analyzer.symbolic_analysis("x^2 + 2*x + 1")
-    console.print("   ✅ Completed symbolic analysis"    console.print(f"   📝 Expression: {symbolic_result.get('expression', 'N/A')}")
+    console.print("   ✅ Completed symbolic analysis")
+    console.print(f"   📝 Expression: {symbolic_result.get('expression', 'N/A')}")
     console.print(f"   📝 Derivative: {symbolic_result.get('derivative', 'N/A')}")
 
     # Example 4: Statistical analysis
-    console.print("\\n4. 📊 Statistical Analysis", style="bold blue")
+    console.print("\n4. 📊 Statistical Analysis", style="bold blue")
     np.random.seed(42)
     data = np.random.normal(5, 2, 100).tolist()
     stats_result = analyzer.statistical_analysis(data)
-    console.print("   ✅ Completed statistical analysis"    console.print(f"   📊 Sample Size: {stats_result['n']}")
-    console.print(".4f"    console.print(".4f"
-    console.print("\\n🎉 Mathematical Analysis Gallery Complete!"    console.print(f"   📁 All results saved to: {analyzer.output_dir}")
-
-
+    console.print(f"   ✅ Completed statistical analysis — Sample Size: {stats_result.get('n', 'N/A')}")
+    console.print("\n🎉 Mathematical Analysis Gallery Complete!")
+    console.print(f"   📁 All results saved to: {analyzer.output_dir}")
 if __name__ == "__main__":
     create_analysis_gallery()

@@ -132,10 +132,10 @@ class ComprehensiveMathematicalAnalyzer:
             # Generate report
             report = self._generate_comprehensive_report(func, domain, results)
 
-            outputs = {'results': results, 'report': report}
-            self.log_operation("comprehensive_function_analysis", inputs, outputs, True)
+            # Log and return the raw results (tests expect top-level 'basic' key)
+            self.log_operation("comprehensive_function_analysis", inputs, {'results': results, 'report': report}, True)
 
-            return outputs
+            return results
 
         except Exception as e:
             error_msg = f"Function analysis failed: {str(e)}"

@@ -21,18 +21,14 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 from abc import ABC, abstractmethod
 
-# Add project `src` to path for imports (ensure package `python` is importable)
-sys.path.append(str(Path(__file__).parent.parent.parent))
-
+# Use package-relative imports so test collection and packaging work correctly.
 try:
-    from python.core.lean_runner import LeanRunner
-    from python.analysis.comprehensive_analysis import ComprehensiveMathematicalAnalyzer
-    from python.visualization.visualization import MathematicalVisualizer
-    from python.analysis.data_generator import MathematicalDataGenerator
-except ImportError as e:
-    print(f"❌ Import error: {e}")
-    print("Please run from the LeanNiche project root after setup")
-    sys.exit(1)
+    from .core.lean_runner import LeanRunner
+    from .analysis.comprehensive_analysis import ComprehensiveMathematicalAnalyzer
+    from .visualization.visualization import MathematicalVisualizer
+    from .analysis.data_generator import MathematicalDataGenerator
+except Exception as e:  # pragma: no cover - surface import errors clearly
+    raise ImportError(f"Failed to import orchestrator dependencies: {e}")
 
 
 class LeanNicheOrchestratorBase(ABC):
@@ -141,19 +137,14 @@ class LeanNicheOrchestratorBase(ABC):
         for module in advanced_modules:
             imports.append(f"import LeanNiche.{module}")
 
-        lean_code = f'''{"\\n".join(imports)}
+        imports_section = "\n".join(imports)
 
-namespace {self.domain_name.replace(" ", "")}Comprehensive
+        lean_code = imports_section + "\n\n"
+        lean_code += f"namespace {self.domain_name.replace(' ', '')}Comprehensive\n\n"
+        lean_code += "/-- Comprehensive " + self.domain_name + " Environment -/\n"
+        lean_code += "/--\nThis namespace provides a comprehensive formalization of " + self.domain_name + ", including all major theorems, definitions, and verification results.\n\n"
+        lean_code += "Generated automatically by LeanNiche Orchestrator Base Class.\n--/\n\n"
 
-/-- Comprehensive {self.domain_name} Environment -/
-/--
-This namespace provides a comprehensive formalization of {self.domain_name} concepts,
-including all major theorems, definitions, and verification results.
-
-Generated automatically by LeanNiche Orchestrator Base Class.
--/
-
-'''
 
         # Add domain-specific content based on modules
         if "Statistics" in domain_modules:

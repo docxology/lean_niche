@@ -205,11 +205,12 @@ class LeanToLatexConverter:
 
     def convert_namespace(self, lean_code: str) -> str:
         """Convert a Lean namespace to LaTeX section"""
-        ns_match = re.match(r'namespace\s+(\w+)', lean_code.strip())
+        ns_match = re.match(r'namespace\s+([\w\.]+)', lean_code.strip())
         if not ns_match:
             return lean_code
 
         name = ns_match.group(1)
+        # Preserve full namespace with dots (e.g., LeanNiche.Basic)
         return f"\\section{{{name}}}\\label{{sec:{name}}}"
 
     def convert_file(self, lean_file: Path, output_file: Optional[Path] = None) -> str:
