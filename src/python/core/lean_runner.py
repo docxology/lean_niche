@@ -15,19 +15,24 @@ from pathlib import Path
 import json
 import logging
 from datetime import datetime
+from .logging_config import LeanLogger, log_lean_step, log_lean_result, log_lean_verification
 
 
 class LeanRunner:
     """Runner for Lean code execution and result extraction"""
 
-    def __init__(self, lean_path: str = "lean", timeout: int = 30):
-        """Initialize the Lean runner"""
+    def __init__(self, lean_path: str = "lean", timeout: int = 30, lean_module: Optional[str] = None):
+        """Initialize the Lean runner with enhanced logging"""
         self.lean_path = lean_path
         self.timeout = timeout
-        self.logger = logging.getLogger(__name__)
+        self.lean_module = lean_module or "LeanRunner"
+        self.lean_logger = LeanLogger("core.lean_runner", self.lean_module)
 
         # Setup logging
         self.setup_logging()
+
+        # Log initialization
+        self.lean_logger.logger.info(f"LeanRunner initialized with path: {lean_path}, timeout: {timeout}s")
 
     def setup_logging(self):
         """Setup logging configuration"""
@@ -49,28 +54,92 @@ class LeanRunner:
         )
 
     def run_lean_code(self, code: str, imports: List[str] = None) -> Dict[str, Any]:
-        """Run Lean code and extract results"""
+        """Run Lean code with comprehensive logging and extract results"""
         if imports is None:
             imports = []
 
-        # Create temporary Lean file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.lean', delete=False) as f:
-            # Write imports
-            for imp in imports:
-                f.write(f"import {imp}\n")
+        # Log the operation start with detailed context
+        operation_details = {
+            "code_length": len(code),
+            "imports_count": len(imports),
+            "imports": imports,
+            "lean_path": self.lean_path,
+            "timeout": self.timeout
+        }
 
-            # Write the code
-            f.write(code)
-            temp_file = Path(f.name)
+        self.lean_logger.log_step_start("run_lean_code", operation_details)
 
+        temp_file = None
+        result = None
         try:
-            # Run Lean
+            # Step 1: Create temporary file
+            self.lean_logger.log_step_start("create_temp_file")
+
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.lean', delete=False) as f:
+                # Write imports with logging
+                for imp in imports:
+                    f.write(f"import {imp}\n")
+                    self.lean_logger.logger.debug(f"Added import: {imp}")
+
+                # Write the code
+                f.write(code)
+                temp_file = Path(f.name)
+
+            self.lean_logger.log_step_end("create_temp_file", success=True, result_details={
+                "temp_file": str(temp_file),
+                "file_size": len(code)
+            })
+
+            # Step 2: Execute Lean
+            self.lean_logger.log_step_start("execute_lean", {
+                "temp_file": str(temp_file),
+                "lean_command": self.lean_path
+            })
+
             result = self._execute_lean(temp_file)
 
-            # Parse results
+            self.lean_logger.log_step_end("execute_lean", success=True, result_details={
+                "execution_time": result.get('execution_time', 0),
+                "return_code": result.get('returncode', -1),
+                "stdout_length": len(result.get('stdout', '')),
+                "stderr_length": len(result.get('stderr', ''))
+            })
+
+            # Step 3: Parse results
+            self.lean_logger.log_step_start("parse_results", {
+                "stdout_length": len(result.get('stdout', '')),
+                "stderr_length": len(result.get('stderr', ''))
+            })
+
             parsed_result = self._parse_lean_output(result)
 
-            self.logger.info(f"Successfully executed Lean code. Result: {parsed_result}")
+            self.lean_logger.log_step_end("parse_results", success=True, result_details={
+                "theorems_found": len(parsed_result.get('theorems_proven', [])),
+                "definitions_found": len(parsed_result.get('definitions_created', [])),
+                "lemmas_found": len(parsed_result.get('lemmas_proven', [])),
+                "verification_status": parsed_result.get('verification_status', {})
+            })
+
+            # Step 4: Log final verification results
+            verification_status = parsed_result.get('verification_status', {})
+            log_lean_result(
+                self.lean_logger.logger,
+                "run_lean_code",
+                self.lean_module,
+                verification_status.get('compilation_successful', False),
+                result_details={
+                    "theorems_proven": len(parsed_result.get('theorems_proven', [])),
+                    "compilation_success": verification_status.get('compilation_successful', False),
+                    "total_proofs": verification_status.get('total_proofs', 0),
+                    "success_rate": verification_status.get('success_rate', 0)
+                }
+            )
+
+            self.lean_logger.log_step_end("run_lean_code", success=True, result_details={
+                "total_theorems": len(parsed_result.get('theorems_proven', [])),
+                "compilation_successful": verification_status.get('compilation_successful', False),
+                "verification_complete": verification_status.get('verification_complete', False)
+            })
 
             return {
                 'success': True,
@@ -81,18 +150,35 @@ class LeanRunner:
             }
 
         except Exception as e:
-            self.logger.error(f"Error running Lean code: {e}")
+            # Log error with full context
+            error_details = {
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "temp_file": str(temp_file) if temp_file else None,
+                "imports": imports,
+                "stdout": result.get('stdout', '') if result else '',
+                "stderr": result.get('stderr', '') if result else ''
+            }
+
+            self.lean_logger.log_error("run_lean_code", e, error_details)
+            self.lean_logger.log_step_end("run_lean_code", success=False, result_details=error_details)
+
             return {
                 'success': False,
                 'error': str(e),
-                'stdout': result.get('stdout', '') if 'result' in locals() else '',
-                'stderr': result.get('stderr', '') if 'result' in locals() else ''
+                'stdout': result.get('stdout', '') if result else '',
+                'stderr': result.get('stderr', '') if result else '',
+                'execution_time': result.get('execution_time', 0) if result else 0
             }
 
         finally:
             # Clean up temporary file
-            if temp_file.exists():
-                temp_file.unlink()
+            if temp_file and temp_file.exists():
+                try:
+                    temp_file.unlink()
+                    self.lean_logger.logger.debug(f"Cleaned up temporary file: {temp_file}")
+                except Exception as e:
+                    self.lean_logger.logger.warning(f"Failed to clean up temp file {temp_file}: {e}")
 
     def _execute_lean(self, lean_file: Path) -> Dict[str, Any]:
         """Execute Lean file and capture output"""

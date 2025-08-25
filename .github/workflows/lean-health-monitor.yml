@@ -1,0 +1,332 @@
+name: Lean Health Monitor
+
+on:
+  workflow_run:
+    workflows: ["Comprehensive CI with Lean Verification", "Lean Action CI with Real Verification"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      check_type:
+        description: 'Type of health check'
+        required: true
+        default: 'comprehensive'
+        type: choice
+        options:
+          - comprehensive
+          - quick
+          - status_only
+
+jobs:
+  lean-health-check:
+    name: Monitor Lean Health
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion != '' || github.event_name == 'workflow_dispatch'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Get workflow run status
+      if: github.event_name == 'workflow_run'
+      run: |
+        echo "Workflow: ${{ github.event.workflow_run.name }}"
+        echo "Conclusion: ${{ github.event.workflow_run.conclusion }}"
+        echo "Run ID: ${{ github.event.workflow_run.id }}"
+
+        if [ "${{ github.event.workflow_run.conclusion }}" == "failure" ]; then
+          echo "❌ Previous workflow failed"
+          echo "WORKFLOW_FAILED=true" >> $GITHUB_ENV
+        else
+          echo "✅ Previous workflow succeeded"
+          echo "WORKFLOW_FAILED=false" >> $GITHUB_ENV
+        fi
+
+    - name: Download artifacts from previous runs
+      if: github.event_name == 'workflow_run'
+      uses: actions/download-artifact@v4
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        repository: ${{ github.repository }}
+        run-id: ${{ github.event.workflow_run.id }}
+        path: previous-artifacts/
+
+    - name: Analyze previous workflow results
+      if: github.event_name == 'workflow_run'
+      run: |
+        echo "🔍 Analyzing previous workflow results..."
+
+        # Check for comprehensive test report
+        if [ -f "previous-artifacts/comprehensive-test-report/comprehensive_test_report.json" ]; then
+          python3 -c "
+          import json
+          with open('previous-artifacts/comprehensive-test-report/comprehensive_test_report.json') as f:
+              data = json.load(f)
+
+          summary = data['test_summary']
+          success_rate = summary['success_rate']
+
+          print(f'Previous comprehensive test success rate: {success_rate:.1f}%')
+
+          if success_rate >= 50:
+              print('✅ Previous Lean verification was successful')
+              print('LEAN_PREVIOUS_SUCCESS=true')
+          else:
+              print('❌ Previous Lean verification failed')
+              print('LEAN_PREVIOUS_SUCCESS=false')
+
+          print(f'LEAN_PREVIOUS_SUCCESS_RATE={success_rate:.1f}')
+          print(f'LEAN_PREVIOUS_TOTAL_TESTS={summary[\"total_tests\"]}')
+          print(f'LEAN_PREVIOUS_PASSED={summary[\"passed\"]}')
+          print(f'LEAN_PREVIOUS_FAILED={summary[\"failed\"]}')
+
+          with open('previous_status.txt', 'w') as f:
+              f.write(f'LEAN_PREVIOUS_SUCCESS={success_rate >= 50}\n')
+              f.write(f'SUCCESS_RATE={success_rate:.1f}\n')
+              f.write(f'TOTAL_TESTS={summary[\"total_tests\"]}\n')
+          " >> $GITHUB_ENV
+        else
+          echo "❌ No comprehensive test report found"
+          echo "LEAN_PREVIOUS_SUCCESS=false" >> $GITHUB_ENV
+          echo "LEAN_PREVIOUS_SUCCESS=false" > previous_status.txt
+        fi
+
+    - name: Run health check verification
+      run: |
+        CHECK_TYPE="${{ github.event.inputs.check_type }}"
+        if [ -z "$CHECK_TYPE" ]; then
+          CHECK_TYPE="quick"
+        fi
+
+        echo "🏥 Running Lean health check ($CHECK_TYPE)..."
+
+        case $CHECK_TYPE in
+          "comprehensive")
+            echo "Running comprehensive health check..."
+            timeout 600 python3 src/tests/run_comprehensive_lean_tests.py --no-logging --output-file health_check.json || echo "Health check completed"
+            ;;
+          "quick")
+            echo "Running quick health check..."
+            timeout 300 python3 src/tests/run_comprehensive_lean_tests.py --no-logging --output-file health_check.json || echo "Quick health check completed"
+            ;;
+          "status_only")
+            echo "Checking status only..."
+            # Just check if we can import and run basic Lean functionality
+            python3 -c "
+            import sys
+            sys.path.insert(0, 'src')
+            try:
+                from python.core.lean_runner import LeanRunner
+                runner = LeanRunner()
+                print('✅ LeanRunner import successful')
+                print('LEAN_HEALTH_STATUS=good')
+            except Exception as e:
+                print(f'❌ LeanRunner import failed: {e}')
+                print('LEAN_HEALTH_STATUS=bad')
+            " > health_check.json
+            ;;
+          *)
+            echo "Unknown check type: $CHECK_TYPE"
+            exit 1
+            ;;
+        esac
+
+    - name: Analyze health check results
+      run: |
+        echo "🔍 Analyzing health check results..."
+
+        if [ -f "health_check.json" ]; then
+          if grep -q "test_summary" health_check.json; then
+            # Comprehensive test results
+            python3 -c "
+            import json
+            with open('health_check.json') as f:
+                data = json.load(f)
+
+            summary = data['test_summary']
+            success_rate = summary['success_rate']
+
+            print(f'Health check success rate: {success_rate:.1f}%')
+
+            if success_rate >= 50:
+                print('✅ Lean health is good')
+                print('LEAN_HEALTH_STATUS=good')
+                print('LEAN_HEALTH_SCORE=healthy')
+            elif success_rate >= 25:
+                print('⚠️ Lean health is degraded')
+                print('LEAN_HEALTH_STATUS=degraded')
+                print('LEAN_HEALTH_SCORE=warning')
+            else:
+                print('❌ Lean health is critical')
+                print('LEAN_HEALTH_STATUS=critical')
+                print('LEAN_HEALTH_SCORE=error')
+
+            print(f'LEAN_CURRENT_SUCCESS_RATE={success_rate:.1f}')
+            print(f'LEAN_CURRENT_TOTAL_TESTS={summary[\"total_tests\"]}')
+
+            with open('health_status.txt', 'w') as f:
+                f.write(f'LEAN_HEALTH_STATUS={success_rate >= 50}\n')
+                f.write(f'LEAN_HEALTH_SCORE={success_rate >= 50}\n')
+                f.write(f'CURRENT_SUCCESS_RATE={success_rate:.1f}\n')
+                f.write(f'CURRENT_TOTAL_TESTS={summary[\"total_tests\"]}\n')
+            " >> $GITHUB_ENV
+          elif grep -q "LEAN_HEALTH_STATUS" health_check.json; then
+            # Status only results
+            grep "LEAN_HEALTH_STATUS" health_check.json | while read line; do
+              echo "$line" >> $GITHUB_ENV
+            done
+            grep "LEAN_HEALTH_STATUS" health_check.json > health_status.txt
+          else
+            echo "❌ Invalid health check results format"
+            echo "LEAN_HEALTH_STATUS=false" >> $GITHUB_ENV
+            echo "LEAN_HEALTH_STATUS=false" > health_status.txt
+          fi
+        else
+          echo "❌ Health check results not found"
+          echo "LEAN_HEALTH_STATUS=false" >> $GITHUB_ENV
+          echo "LEAN_HEALTH_STATUS=false" > health_status.txt
+        fi
+
+    - name: Upload health check results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: lean-health-check-results
+        path: |
+          health_check.json
+          health_status.txt
+          previous_status.txt
+
+    - name: Generate health report
+      run: |
+        echo "## 🏥 Lean Health Monitor Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📊 **Health Check Date**: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -f "health_status.txt" ]; then
+          echo "### 🔍 Current Health Status" >> $GITHUB_STEP_SUMMARY
+
+          while IFS='=' read -r key value; do
+            case $key in
+              LEAN_HEALTH_STATUS)
+                if [ "$value" = "true" ]; then
+                  echo "✅ **Lean Health Status**: Good" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "❌ **Lean Health Status**: Issues Detected" >> $GITHUB_STEP_SUMMARY
+                fi
+                ;;
+              CURRENT_SUCCESS_RATE)
+                echo "- **Current Success Rate**: $value%" >> $GITHUB_STEP_SUMMARY
+                ;;
+              CURRENT_TOTAL_TESTS)
+                echo "- **Tests Run**: $value" >> $GITHUB_STEP_SUMMARY
+                ;;
+            esac
+          done < health_status.txt
+        fi
+
+        if [ -f "previous_status.txt" ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📈 Previous Workflow Comparison" >> $GITHUB_STEP_SUMMARY
+
+          while IFS='=' read -r key value; do
+            case $key in
+              LEAN_PREVIOUS_SUCCESS)
+                if [ "$value" = "true" ]; then
+                  echo "✅ **Previous Status**: Successful" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "❌ **Previous Status**: Failed" >> $GITHUB_STEP_SUMMARY
+                fi
+                ;;
+              SUCCESS_RATE)
+                echo "- **Previous Success Rate**: $value%" >> $GITHUB_STEP_SUMMARY
+                ;;
+              TOTAL_TESTS)
+                echo "- **Previous Tests**: $value" >> $GITHUB_STEP_SUMMARY
+                ;;
+            esac
+          done < previous_status.txt
+        fi
+
+        if [ "$WORKFLOW_FAILED" = "true" ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚨 Previous Workflow Failed" >> $GITHUB_STEP_SUMMARY
+          echo "The previous Lean verification workflow failed." >> $GITHUB_STEP_SUMMARY
+          echo "Check the workflow logs for detailed error information." >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Create issue on health degradation
+      if: env.LEAN_HEALTH_STATUS == 'false' && env.LEAN_PREVIOUS_SUCCESS == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+
+          // Read health check details
+          let healthDetails = 'Lean health degradation detected';
+          if (fs.existsSync('health_status.txt')) {
+            healthDetails = fs.readFileSync('health_status.txt', 'utf8');
+          }
+
+          const body = `## 🚨 Lean Health Degradation Detected
+
+          The Lean health monitor has detected a degradation in Lean method functionality.
+
+          ### Details
+          ${healthDetails}
+
+          ### Previous Status
+          - Previous workflow: ${process.env.WORKFLOW_FAILED === 'true' ? 'Failed' : 'Succeeded'}
+          - Previous success rate: ${process.env.LEAN_PREVIOUS_SUCCESS_RATE || 'Unknown'}%
+
+          ### Action Required
+          - Review the health check results in the workflow artifacts
+          - Check Lean code compilation and theorem verification
+          - Fix any failing Lean methods or tests
+
+          This issue was automatically created by the Lean Health Monitor workflow.`;
+
+          const { data: issue } = await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `🚨 Lean Health Degradation - ${new Date().toISOString().split('T')[0]}`,
+            body: body,
+            labels: ['lean-health', 'automated', 'bug']
+          });
+
+          console.log(`Created issue #${issue.number}: ${issue.title}`);
+
+    - name: Send health notification
+      if: always()
+      run: |
+        echo "📤 Sending health notification..."
+
+        # Create notification summary
+        cat > notification.json << EOF
+        {
+          "timestamp": "$(date -Iseconds)",
+          "repository": "${{ github.repository }}",
+          "workflow": "lean-health-monitor",
+          "health_status": "${{ env.LEAN_HEALTH_STATUS }}",
+          "current_success_rate": "${{ env.LEAN_CURRENT_SUCCESS_RATE }}",
+          "workflow_failed": "${{ env.WORKFLOW_FAILED }}",
+          "check_type": "${{ github.event.inputs.check_type }}",
+          "commit_sha": "${{ github.sha }}"
+        }
+        EOF
+
+        echo "Health notification prepared"
+        cat notification.json
+
+    - name: Fail if critical health issues
+      if: env.LEAN_HEALTH_STATUS == 'false'
+      run: |
+        echo "❌ Critical Lean health issues detected"
+        echo "Lean methods realness not confirmed"
+        exit 1

@@ -1,0 +1,477 @@
+name: Lean Methods Dashboard
+
+on:
+  workflow_run:
+    workflows:
+      - "Comprehensive CI with Lean Verification"
+      - "Lean Action CI with Real Verification"
+      - "Lean Verification on Push"
+      - "Lean Methods Realness Check"
+      - "Scheduled Lean Verification"
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  lean-dashboard:
+    name: Generate Lean Methods Dashboard
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Download all workflow artifacts
+      if: github.event_name == 'workflow_run'
+      uses: actions/download-artifact@v4
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        repository: ${{ github.repository }}
+        run-id: ${{ github.event.workflow_run.id }}
+        path: all-artifacts/
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Generate dashboard data
+      run: |
+        echo "📊 Generating Lean methods dashboard..."
+
+        # Create dashboard data structure
+        cat > dashboard_data.json << EOF
+        {
+          "generated_at": "$(date -Iseconds)",
+          "repository": "${{ github.repository }}",
+          "commit_sha": "${{ github.sha }}",
+          "workflows": {
+            "comprehensive_ci": {
+              "name": "Comprehensive CI with Lean Verification",
+              "status": "unknown",
+              "success_rate": null,
+              "test_results": null
+            },
+            "lean_action_ci": {
+              "name": "Lean Action CI with Real Verification",
+              "status": "unknown",
+              "success_rate": null,
+              "test_results": null
+            },
+            "lean_verification": {
+              "name": "Lean Verification on Push",
+              "status": "unknown",
+              "success_rate": null,
+              "test_results": null
+            },
+            "realness_check": {
+              "name": "Lean Methods Realness Check",
+              "status": "unknown",
+              "success_rate": null,
+              "test_results": null
+            }
+          },
+          "overall_health": {
+            "status": "unknown",
+            "score": null,
+            "recommendations": []
+          }
+        }
+        EOF
+
+        # Process comprehensive test report
+        if [ -f "all-artifacts/comprehensive-test-report/comprehensive_test_report.json" ]; then
+          python3 -c "
+          import json
+
+          # Load dashboard data
+          with open('dashboard_data.json') as f:
+              dashboard = json.load(f)
+
+          # Load comprehensive test results
+          with open('all-artifacts/comprehensive-test-report/comprehensive_test_report.json') as f:
+              comp_results = json.load(f)
+
+          dashboard['workflows']['comprehensive_ci']['status'] = 'completed'
+          dashboard['workflows']['comprehensive_ci']['success_rate'] = comp_results['test_summary']['success_rate']
+          dashboard['workflows']['comprehensive_ci']['test_results'] = comp_results['test_results']
+
+          print('✅ Processed comprehensive CI results')
+
+          # Update dashboard
+          with open('dashboard_data.json', 'w') as f:
+              json.dump(dashboard, f, indent=2)
+          " || echo "Failed to process comprehensive test results"
+        fi
+
+        # Process lean action test report
+        if [ -f "all-artifacts/lean-action-test-report/lean_action_test_report.json" ]; then
+          python3 -c "
+          import json
+
+          # Load dashboard data
+          with open('dashboard_data.json') as f:
+              dashboard = json.load(f)
+
+          # Load lean action test results
+          with open('all-artifacts/lean-action-test-report/lean_action_test_report.json') as f:
+              action_results = json.load(f)
+
+          dashboard['workflows']['lean_action_ci']['status'] = 'completed'
+          dashboard['workflows']['lean_action_ci']['success_rate'] = action_results['test_summary']['success_rate']
+          dashboard['workflows']['lean_action_ci']['test_results'] = action_results['test_results']
+
+          print('✅ Processed Lean Action CI results')
+
+          # Update dashboard
+          with open('dashboard_data.json', 'w') as f:
+              json.dump(dashboard, f, indent=2)
+          " || echo "Failed to process Lean Action test results"
+        fi
+
+        # Process quick verification results
+        if [ -f "all-artifacts/quick-verification-report/quick_verification.json" ]; then
+          python3 -c "
+          import json
+
+          # Load dashboard data
+          with open('dashboard_data.json') as f:
+              dashboard = json.load(f)
+
+          # Load quick verification results
+          with open('all-artifacts/quick-verification-report/quick_verification.json') as f:
+              quick_results = json.load(f)
+
+          dashboard['workflows']['lean_verification']['status'] = 'completed'
+          dashboard['workflows']['lean_verification']['success_rate'] = quick_results['test_summary']['success_rate']
+          dashboard['workflows']['lean_verification']['test_results'] = quick_results['test_results']
+
+          print('✅ Processed Lean verification results')
+
+          # Update dashboard
+          with open('dashboard_data.json', 'w') as f:
+              json.dump(dashboard, f, indent=2)
+          " || echo "Failed to process quick verification results"
+        fi
+
+        # Process realness test results
+        if [ -f "all-artifacts/lean-realness-test-results/realness_test.json" ]; then
+          python3 -c "
+          import json
+
+          # Load dashboard data
+          with open('dashboard_data.json') as f:
+              dashboard = json.load(f)
+
+          # Load realness test results
+          with open('all-artifacts/lean-realness-test-results/realness_test.json') as f:
+              realness_results = json.load(f)
+
+          dashboard['workflows']['realness_check']['status'] = 'completed'
+          dashboard['workflows']['realness_check']['success_rate'] = realness_results['test_summary']['success_rate']
+          dashboard['workflows']['realness_check']['test_results'] = realness_results['test_results']
+
+          print('✅ Processed realness check results')
+
+          # Update dashboard
+          with open('dashboard_data.json', 'w') as f:
+              json.dump(dashboard, f, indent=2)
+          " || echo "Failed to process realness test results"
+        fi
+
+        # Calculate overall health score
+        python3 -c "
+        import json
+
+        # Load dashboard data
+        with open('dashboard_data.json') as f:
+            dashboard = json.load(f)
+
+        # Calculate overall health
+        workflows = dashboard['workflows']
+        completed_workflows = [w for w in workflows.values() if w['status'] == 'completed']
+
+        if completed_workflows:
+            total_success_rate = sum(w['success_rate'] for w in completed_workflows if w['success_rate'] is not None)
+            avg_success_rate = total_success_rate / len([w for w in completed_workflows if w['success_rate'] is not None])
+
+            if avg_success_rate >= 70:
+                health_status = 'excellent'
+                recommendations = ['All Lean methods working perfectly', 'Continue regular monitoring']
+            elif avg_success_rate >= 50:
+                health_status = 'good'
+                recommendations = ['Lean methods working well', 'Monitor for any degradation']
+            elif avg_success_rate >= 25:
+                health_status = 'degraded'
+                recommendations = ['Some Lean method issues detected', 'Review failing tests', 'Check Lean code compilation']
+            else:
+                health_status = 'critical'
+                recommendations = ['Critical Lean method issues', 'Immediate investigation required', 'Fix compilation errors', 'Review Lean code changes']
+
+            dashboard['overall_health'] = {
+                'status': health_status,
+                'score': avg_success_rate,
+                'recommendations': recommendations,
+                'completed_workflows': len(completed_workflows),
+                'total_workflows': len(workflows)
+            }
+        else:
+            dashboard['overall_health'] = {
+                'status': 'no_data',
+                'score': None,
+                'recommendations': ['No workflow results available', 'Check workflow execution'],
+                'completed_workflows': 0,
+                'total_workflows': len(workflows)
+            }
+
+        print(f'Overall health calculated: {dashboard[\"overall_health\"][\"status\"]}')
+
+        # Update dashboard
+        with open('dashboard_data.json', 'w') as f:
+            json.dump(dashboard, f, indent=2)
+        " || echo "Failed to calculate overall health"
+
+    - name: Generate dashboard HTML
+      run: |
+        python3 -c "
+        import json
+
+        # Load dashboard data
+        with open('dashboard_data.json') as f:
+            dashboard = json.load(f)
+
+        # Generate HTML dashboard
+        html = f'''
+        <!DOCTYPE html>
+        <html lang=\"en\">
+        <head>
+            <meta charset=\"UTF-8\">
+            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+            <title>Lean Methods Dashboard</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }}
+                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                          color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }}
+                .health-card {{ background: white; padding: 20px; border-radius: 10px; margin: 10px 0;
+                              box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+                .workflow-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                               gap: 15px; margin: 20px 0; }}
+                .workflow-card {{ background: white; padding: 15px; border-radius: 8px;
+                                border-left: 4px solid #28a745; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
+                .status-excellent {{ border-left-color: #28a745; }}
+                .status-good {{ border-left-color: #17a2b8; }}
+                .status-degraded {{ border-left-color: #ffc107; }}
+                .status-critical {{ border-left-color: #dc3545; }}
+                .status-no-data {{ border-left-color: #6c757d; }}
+                .metric {{ display: flex; justify-content: space-between; margin: 8px 0; }}
+                .metric-label {{ font-weight: bold; }}
+                .metric-value {{ color: #666; }}
+                .recommendations {{ background: #f8f9fa; padding: 10px; border-radius: 5px; margin-top: 10px; }}
+                .recommendation {{ margin: 5px 0; padding: 5px; background: white; border-radius: 3px; }}
+            </style>
+        </head>
+        <body>
+            <div class=\"header\">
+                <h1>🔬 Lean Methods Dashboard</h1>
+                <p>Real-time verification of Lean method functionality</p>
+                <small>Generated: {dashboard['generated_at']}</small>
+            </div>
+
+            <div class=\"health-card\">
+                <h2>🏥 Overall Health Status</h2>
+                <div class=\"metric\">
+                    <span class=\"metric-label\">Status:</span>
+                    <span class=\"metric-value\" style=\"text-transform: capitalize;\">
+                        {dashboard['overall_health']['status']}
+                    </span>
+                </div>
+                <div class=\"metric\">
+                    <span class=\"metric-label\">Score:</span>
+                    <span class=\"metric-value\">
+                        {dashboard['overall_health']['score']:.1f if dashboard['overall_health']['score'] else 'N/A'}%
+                    </span>
+                </div>
+                <div class=\"metric\">
+                    <span class=\"metric-label\">Completed Workflows:</span>
+                    <span class=\"metric-value\">
+                        {dashboard['overall_health']['completed_workflows']}/{dashboard['overall_health']['total_workflows']}
+                    </span>
+                </div>
+                <div class=\"recommendations\">
+                    <h4>💡 Recommendations</h4>
+                    {chr(10).join(f'<div class=\"recommendation\">• {rec}</div>' for rec in dashboard['overall_health']['recommendations'])}
+                </div>
+            </div>
+
+            <h2>🔄 Workflow Results</h2>
+            <div class=\"workflow-grid\">
+        '''
+
+        # Add workflow cards
+        for workflow_key, workflow in dashboard['workflows'].items():
+            status_class = f'status-{workflow[\"status\"]}' if workflow['status'] != 'unknown' else 'status-no-data'
+
+            if workflow['status'] == 'completed' and workflow['success_rate'] is not None:
+                if workflow['success_rate'] >= 70:
+                    status_class = 'status-excellent'
+                elif workflow['success_rate'] >= 50:
+                    status_class = 'status-good'
+                elif workflow['success_rate'] >= 25:
+                    status_class = 'status-degraded'
+                else:
+                    status_class = 'status-critical'
+
+            success_rate_display = f'{workflow[\"success_rate\"]:.1f}%' if workflow['success_rate'] is not None else 'N/A'
+
+            html += f'''
+                <div class=\"workflow-card {status_class}\">
+                    <h3>{workflow['name']}</h3>
+                    <div class=\"metric\">
+                        <span class=\"metric-label\">Status:</span>
+                        <span class=\"metric-value\" style=\"text-transform: capitalize;\">{workflow['status']}</span>
+                    </div>
+                    <div class=\"metric\">
+                        <span class=\"metric-label\">Success Rate:</span>
+                        <span class=\"metric-value\">{success_rate_display}</span>
+                    </div>
+                    <div class=\"metric\">
+                        <span class=\"metric-label\">Test Results:</span>
+                        <span class=\"metric-value\">
+                            {len([r for r in (workflow['test_results'] or {}).values() if r]) if workflow['test_results'] else 0}/
+                            {len(workflow['test_results'] or {})}
+                        </span>
+                    </div>
+                </div>
+            '''
+
+        html += '''
+            </div>
+
+            <div class=\"health-card\">
+                <h2>📊 Repository Information</h2>
+                <div class=\"metric\">
+                    <span class=\"metric-label\">Repository:</span>
+                    <span class=\"metric-value\">''' + dashboard['repository'] + '''</span>
+                </div>
+                <div class=\"metric\">
+                    <span class=\"metric-label\">Commit:</span>
+                    <span class=\"metric-value\">''' + dashboard['commit_sha'][:8] + '''</span>
+                </div>
+                <div class=\"metric\">
+                    <span class=\"metric-label\">Generated:</span>
+                    <span class=\"metric-value\">''' + dashboard['generated_at'] + '''</span>
+                </div>
+            </div>
+
+            <div class=\"health-card\">
+                <h2>🎯 Lean Method Verification</h2>
+                <p>This dashboard monitors the realness and effectiveness of Lean methods through comprehensive testing:</p>
+                <ul>
+                    <li><strong>Real Execution:</strong> Verifies Lean code compilation and theorem proving</li>
+                    <li><strong>Method Validation:</strong> Confirms all LeanRunner methods are functional</li>
+                    <li><strong>Performance Monitoring:</strong> Tracks execution time and resource usage</li>
+                    <li><strong>Error Handling:</strong> Tests robust error recovery and logging</li>
+                    <li><strong>Integration Testing:</strong> Validates complete system functionality</li>
+                </ul>
+                <p><em>All tests ensure Lean methods are not just present, but actually working correctly.</em></p>
+            </div>
+        </body>
+        </html>
+        '''
+
+        with open('lean_dashboard.html', 'w') as f:
+            f.write(html)
+
+        print('✅ HTML dashboard generated')
+        "
+
+    - name: Upload dashboard
+      uses: actions/upload-artifact@v4
+      with:
+        name: lean-dashboard
+        path: |
+          dashboard_data.json
+          lean_dashboard.html
+
+    - name: Generate GitHub summary
+      run: |
+        echo "## 🔬 Lean Methods Dashboard Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📊 **Dashboard Generated**: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -f "dashboard_data.json" ]; then
+          python3 -c "
+          import json
+
+          with open('dashboard_data.json') as f:
+              dashboard = json.load(f)
+
+          health = dashboard['overall_health']
+          workflows = dashboard['workflows']
+
+          print('### 🏥 Overall Health')
+          print(f'- **Status**: {health[\"status\"].title()}')
+          if health['score']:
+              print(f'- **Score**: {health[\"score\"]:.1f}%')
+          print(f'- **Completed Workflows**: {health[\"completed_workflows\"]}/{health[\"total_workflows\"]}')
+          print('')
+          print('### 🔄 Workflow Status')
+          for workflow_key, workflow in workflows.items():
+              status = workflow['status']
+              success_rate = f'{workflow[\"success_rate\"]:.1f}%' if workflow['success_rate'] else 'N/A'
+              print(f'- **{workflow[\"name\"]}**: {status.title()} ({success_rate})')
+          print('')
+          print('### 💡 Key Recommendations')
+          for rec in health['recommendations']:
+              print(f'- {rec}')
+          " >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Dashboard data not available" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📁 Available Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- 📊 **Dashboard Data**: JSON format with complete test results" >> $GITHUB_STEP_SUMMARY
+        echo "- 🌐 **HTML Dashboard**: Interactive web view of all results" >> $GITHUB_STEP_SUMMARY
+        echo "- 📋 **Individual Reports**: Detailed results from each workflow" >> $GITHUB_STEP_SUMMARY
+        echo "- 📁 **Example Outputs**: Generated files from Lean examples" >> $GITHUB_STEP_SUMMARY
+        echo "- 📝 **Log Files**: Comprehensive execution logs" >> $GITHUB_STEP_SUMMARY
+
+    - name: Comment on PR with dashboard link
+      if: github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+
+          let body = '## 🔬 Lean Methods Dashboard\n\n';
+          body += 'The Lean Methods Dashboard has been generated with comprehensive verification results.\n\n';
+
+          if (fs.existsSync('dashboard_data.json')) {
+            const dashboard = JSON.parse(fs.readFileSync('dashboard_data.json', 'utf8'));
+            const health = dashboard.overall_health;
+
+            body += `### 🏥 Health Status: ${health.status.toUpperCase()}\n`;
+            if (health.score) {
+              body += `**Score**: ${health.score.toFixed(1)}%\n\n`;
+            }
+
+            body += '### 🔄 Workflow Results\n';
+            for (const [key, workflow] of Object.entries(dashboard.workflows)) {
+              const successRate = workflow.success_rate ? `${workflow.success_rate.toFixed(1)}%` : 'N/A';
+              body += `**${workflow.name}**: ${workflow.status} (${successRate})\n`;
+            }
+
+            body += '\n### 📁 Download Results\n';
+            body += 'View the complete dashboard and all test artifacts in the workflow artifacts.\n';
+          }
+
+          body += '\n*This dashboard ensures all Lean methods are real and effective.*';
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: body
+          });

@@ -20,6 +20,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from abc import ABC, abstractmethod
+from .logging_config import LeanLogger, log_lean_step, log_lean_result, setup_lean_logging
 
 # Use package-relative imports so test collection and packaging work correctly.
 try:
@@ -35,17 +36,52 @@ except Exception as e:  # pragma: no cover - surface import errors clearly
 class LeanNicheOrchestratorBase(ABC):
     """Base class for all LeanNiche example orchestrators."""
 
-    def __init__(self, domain_name: str, output_dir: str):
-        """Initialize the base orchestrator."""
+    def __init__(self, domain_name: str, output_dir: str, enable_logging: bool = True):
+        """Initialize the base orchestrator with comprehensive logging."""
         self.domain_name = domain_name
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Initialize core components
-        self.lean_runner = LeanRunner()
-        self.analyzer = ComprehensiveMathematicalAnalyzer()
-        self.visualizer = MathematicalVisualizer()
-        self.data_generator = MathematicalDataGenerator()
+        # Initialize logging first
+        if enable_logging:
+            self.lean_logger = LeanLogger("orchestrator", domain_name)
+            self.lean_logger.logger.info(f"Initializing {domain_name} orchestrator", extra={
+                "domain": domain_name,
+                "output_dir": str(output_dir),
+                "timestamp": datetime.now().isoformat()
+            })
+
+        # Initialize core components with logging
+        if enable_logging:
+            self.lean_logger.log_step_start("initialize_components")
+
+        try:
+            self.lean_runner = LeanRunner(lean_module=domain_name)
+            if enable_logging:
+                self.lean_logger.logger.info("LeanRunner initialized successfully")
+
+            self.analyzer = ComprehensiveMathematicalAnalyzer()
+            if enable_logging:
+                self.lean_logger.logger.info("ComprehensiveMathematicalAnalyzer initialized successfully")
+
+            self.visualizer = MathematicalVisualizer()
+            if enable_logging:
+                self.lean_logger.logger.info("MathematicalVisualizer initialized successfully")
+
+            self.data_generator = MathematicalDataGenerator()
+            if enable_logging:
+                self.lean_logger.logger.info("MathematicalDataGenerator initialized successfully")
+
+            if enable_logging:
+                self.lean_logger.log_step_end("initialize_components", success=True)
+
+        except Exception as e:
+            if enable_logging:
+                self.lean_logger.log_error("initialize_components", e, {
+                    "domain": domain_name,
+                    "output_dir": str(output_dir)
+                })
+            raise
 
         # Create organized subdirectories
         self.proofs_dir = self.output_dir / "proofs"
@@ -53,57 +89,162 @@ class LeanNicheOrchestratorBase(ABC):
         self.viz_dir = self.output_dir / "visualizations"
         self.reports_dir = self.output_dir / "reports"
 
+        if enable_logging:
+            self.lean_logger.log_step_start("create_directories")
+
         for dir_path in [self.proofs_dir, self.data_dir, self.viz_dir, self.reports_dir]:
             dir_path.mkdir(exist_ok=True)
+            if enable_logging:
+                self.lean_logger.logger.debug(f"Created directory: {dir_path}")
+
+        if enable_logging:
+            self.lean_logger.log_step_end("create_directories", success=True, result_details={
+                "directories_created": [str(d) for d in [self.proofs_dir, self.data_dir, self.viz_dir, self.reports_dir]]
+            })
 
         # Track all Lean modules used
         self.lean_modules_used = set()
         self.proof_outcomes = {}
         self.execution_metrics = {}
 
+        if enable_logging:
+            self.lean_logger.logger.info(f"{domain_name} orchestrator initialization complete", extra={
+                "domain": domain_name,
+                "output_structure": {
+                    "data": str(self.data_dir),
+                    "proofs": str(self.proofs_dir),
+                    "visualizations": str(self.viz_dir),
+                    "reports": str(self.reports_dir)
+                }
+            })
+
     def setup_comprehensive_lean_environment(self, domain_modules: List[str]) -> Path:
-        """Setup comprehensive Lean environment with all relevant modules."""
+        """Setup comprehensive Lean environment with all relevant modules and detailed logging."""
+        # Check if logging is enabled (has lean_logger attribute)
+        enable_logging = hasattr(self, 'lean_logger')
+
+        if enable_logging:
+            self.lean_logger.log_step_start("setup_comprehensive_lean_environment", {
+                "domain_name": self.domain_name,
+                "domain_modules": domain_modules,
+                "modules_count": len(domain_modules)
+            })
+
         print(f"🔬 Setting up comprehensive Lean environment for {self.domain_name}...")
 
-        # Generate comprehensive Lean code using all specified modules
-        lean_code = self._generate_comprehensive_lean_code(domain_modules)
-
-        # Save Lean code
-        lean_file = self.proofs_dir / f"{self.domain_name.lower().replace(' ', '_')}_comprehensive.lean"
-        with open(lean_file, 'w') as f:
-            f.write(lean_code)
-
-        print(f"✅ Comprehensive Lean environment saved to: {lean_file}")
-
-        # Execute and capture comprehensive proof outcomes
-        print("🔬 Executing Lean code and extracting proof outcomes...")
         try:
-            verification_result = self.lean_runner.run_lean_code(lean_code)
+            # Step 1: Generate comprehensive Lean code
+            if enable_logging:
+                self.lean_logger.log_step_start("generate_lean_code", {
+                    "modules": domain_modules
+                })
 
-            if verification_result.get('success', False):
-                print("✅ Lean code executed successfully")
+            lean_code = self._generate_comprehensive_lean_code(domain_modules)
 
-                # Save comprehensive proof outcomes
-                saved_files = self.lean_runner.save_comprehensive_proof_outcomes(
-                    verification_result,
-                    self.proofs_dir,
-                    f"{self.domain_name.lower().replace(' ', '_')}"
-                )
+            if enable_logging:
+                self.lean_logger.log_step_end("generate_lean_code", success=True, result_details={
+                    "code_length": len(lean_code),
+                    "modules_included": len(domain_modules)
+                })
 
-                # Store proof outcomes for later use
-                self.proof_outcomes = verification_result.get('result', {})
+            # Step 2: Save Lean code
+            if enable_logging:
+                self.lean_logger.log_step_start("save_lean_file")
 
-                print(f"📊 Proof outcomes saved to {len(saved_files)} files:")
-                for file_type, file_path in saved_files.items():
-                    print(f"   • {file_type}: {file_path.name}")
+            lean_file = self.proofs_dir / f"{self.domain_name.lower().replace(' ', '_')}_comprehensive.lean"
+            with open(lean_file, 'w') as f:
+                f.write(lean_code)
 
-            else:
-                print(f"⚠️ Lean verification warning: {verification_result.get('error', 'Unknown')}")
+            if enable_logging:
+                self.lean_logger.log_step_end("save_lean_file", success=True, result_details={
+                    "lean_file": str(lean_file),
+                    "file_size": len(lean_code)
+                })
+
+            print(f"✅ Comprehensive Lean environment saved to: {lean_file}")
+
+            # Step 3: Execute and capture comprehensive proof outcomes
+            print("🔬 Executing Lean code and extracting proof outcomes...")
+
+            if enable_logging:
+                self.lean_logger.log_step_start("execute_lean_verification", {
+                    "lean_file": str(lean_file),
+                    "code_length": len(lean_code)
+                })
+
+            try:
+                verification_result = self.lean_runner.run_lean_code(lean_code, domain_modules)
+
+                if verification_result.get('success', False):
+                    print("✅ Lean code executed successfully")
+
+                    if enable_logging:
+                        self.lean_logger.log_step_end("execute_lean_verification", success=True, result_details={
+                            "execution_time": verification_result.get('execution_time', 0),
+                            "theorems_found": len(verification_result.get('result', {}).get('theorems_proven', []))
+                        })
+
+                    # Step 4: Save comprehensive proof outcomes
+                    if enable_logging:
+                        self.lean_logger.log_step_start("save_proof_outcomes")
+
+                    saved_files = self.lean_runner.save_comprehensive_proof_outcomes(
+                        verification_result,
+                        self.proofs_dir,
+                        f"{self.domain_name.lower().replace(' ', '_')}"
+                    )
+
+                    if enable_logging:
+                        self.lean_logger.log_step_end("save_proof_outcomes", success=True, result_details={
+                            "files_saved": len(saved_files),
+                            "file_types": list(saved_files.keys())
+                        })
+
+                    # Store proof outcomes for later use
+                    self.proof_outcomes = verification_result.get('result', {})
+
+                    print(f"📊 Proof outcomes saved to {len(saved_files)} files:")
+                    for file_type, file_path in saved_files.items():
+                        print(f"   • {file_type}: {file_path.name}")
+
+                else:
+                    error_msg = verification_result.get('error', 'Unknown error')
+                    print(f"⚠️ Lean verification warning: {error_msg}")
+
+                    if enable_logging:
+                        self.lean_logger.log_step_end("execute_lean_verification", success=False, result_details={
+                            "error": error_msg,
+                            "stdout": verification_result.get('stdout', ''),
+                            "stderr": verification_result.get('stderr', '')
+                        })
+
+            except Exception as e:
+                error_msg = str(e)
+                print(f"⚠️ Lean execution warning: {error_msg}")
+
+                if enable_logging:
+                    self.lean_logger.log_error("execute_lean_verification", e, {
+                        "lean_file": str(lean_file),
+                        "domain_modules": domain_modules
+                    })
+                    self.lean_logger.log_step_end("execute_lean_verification", success=False)
+
+            if enable_logging:
+                self.lean_logger.log_step_end("setup_comprehensive_lean_environment", success=True, result_details={
+                    "lean_file_created": str(lean_file),
+                    "proof_outcomes_captured": len(self.proof_outcomes)
+                })
+
+            return lean_file
 
         except Exception as e:
-            print(f"⚠️ Lean execution warning: {str(e)}")
-
-        return lean_file
+            if enable_logging:
+                self.lean_logger.log_error("setup_comprehensive_lean_environment", e, {
+                    "domain_name": self.domain_name,
+                    "domain_modules": domain_modules
+                })
+                self.lean_logger.log_step_end("setup_comprehensive_lean_environment", success=False)
+            raise
 
     def _generate_comprehensive_lean_code(self, domain_modules: List[str]) -> str:
         """Generate comprehensive Lean code using all specified modules."""

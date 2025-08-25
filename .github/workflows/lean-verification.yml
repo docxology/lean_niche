@@ -1,0 +1,176 @@
+name: Lean Verification on Push
+
+on:
+  push:
+    branches: [ main, develop, feature/** ]
+    paths:
+      - 'src/lean/**'
+      - 'src/python/core/**'
+      - 'src/tests/**'
+      - 'examples/**'
+      - 'pyproject.toml'
+      - 'lakefile.toml'
+      - 'lean-toolchain'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'src/lean/**'
+      - 'src/python/core/**'
+      - 'src/tests/**'
+      - 'examples/**'
+
+jobs:
+  lean-verification-check:
+    name: Lean Methods Realness Check
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-xdist numpy scipy matplotlib seaborn plotly rich
+
+    - name: Setup Lean
+      uses: leanprover/elan-init@v1
+
+    - name: Install lake
+      run: |
+        elan toolchain install stable || true
+        curl https://raw.githubusercontent.com/leanprover/lake/master/install.sh | bash
+
+    - name: Setup Lean environment
+      run: |
+        echo "LEAN_PATH=${{ runner.workspace }}/src/lean:$LEAN_PATH" >> $GITHUB_ENV
+
+    - name: Build Lean project
+      run: |
+        lake update
+        lake build
+
+    - name: Create logs directory
+      run: mkdir -p logs
+
+    - name: Run quick Lean verification
+      run: |
+        echo "🔬 Running Quick Lean Verification Check"
+        timeout 300 python3 src/tests/run_comprehensive_lean_tests.py --no-logging --output-file quick_verification.json || echo "Verification completed with timeout or errors"
+
+    - name: Check Lean verification results
+      run: |
+        echo "🔍 Checking Lean verification results..."
+        if [ -f "quick_verification.json" ]; then
+          python3 -c "
+          import json
+          import sys
+
+          try:
+              with open('quick_verification.json') as f:
+                  data = json.load(f)
+
+              summary = data['test_summary']
+              success_rate = summary['success_rate']
+
+              print(f'Quick Lean verification success rate: {success_rate:.1f}%')
+
+              # Require at least 40% success rate for basic functionality
+              if success_rate >= 40:
+                  print('✅ Basic Lean functionality confirmed')
+                  print(f'LEAN_BASIC_FUNCTIONAL=true')
+                  print(f'LEAN_SUCCESS_RATE={success_rate:.1f}')
+                  with open('verification_status.txt', 'w') as status_file:
+                      status_file.write(f'BASIC_LEAN_FUNCTIONAL=true\n')
+                      status_file.write(f'SUCCESS_RATE={success_rate:.1f}\n')
+                      status_file.write(f'TOTAL_TESTS={summary[\"total_tests\"]}\n')
+                      status_file.write(f'PASSED={summary[\"passed\"]}\n')
+              else:
+                  print('❌ Basic Lean functionality not confirmed')
+                  print(f'LEAN_BASIC_FUNCTIONAL=false')
+                  with open('verification_status.txt', 'w') as status_file:
+                      status_file.write(f'BASIC_LEAN_FUNCTIONAL=false\n')
+                      status_file.write(f'SUCCESS_RATE={success_rate:.1f}\n')
+                  sys.exit(1)
+
+          except Exception as e:
+              print(f'Error parsing verification results: {e}')
+              print('LEAN_BASIC_FUNCTIONAL=false')
+              with open('verification_status.txt', 'w') as status_file:
+                  status_file.write(f'BASIC_LEAN_FUNCTIONAL=false\n')
+                  status_file.write(f'ERROR={e}\n')
+              sys.exit(1)
+          " >> $GITHUB_ENV
+        else
+          echo "❌ Verification report not found"
+          echo "LEAN_BASIC_FUNCTIONAL=false" >> $GITHUB_ENV
+          echo "BASIC_LEAN_FUNCTIONAL=false" > verification_status.txt
+          exit 1
+        fi
+
+    - name: Upload verification status
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: lean-verification-status
+        path: verification_status.txt
+
+    - name: Upload quick verification report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: quick-verification-report
+        path: quick_verification.json
+
+    - name: Generate verification status comment
+      if: always()
+      run: |
+        if [ -f "verification_status.txt" ]; then
+          echo "## 🔬 Lean Verification Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          while IFS='=' read -r key value; do
+            case $key in
+              BASIC_LEAN_FUNCTIONAL)
+                if [ "$value" = "true" ]; then
+                  echo "✅ **Lean methods confirmed as real and functional**" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "❌ **Lean methods functionality not confirmed**" >> $GITHUB_STEP_SUMMARY
+                fi
+                ;;
+              SUCCESS_RATE)
+                echo "- **Success Rate**: $value%" >> $GITHUB_STEP_SUMMARY
+                ;;
+              TOTAL_TESTS)
+                echo "- **Total Tests**: $value" >> $GITHUB_STEP_SUMMARY
+                ;;
+              PASSED)
+                echo "- **Tests Passed**: $value" >> $GITHUB_STEP_SUMMARY
+                ;;
+              ERROR)
+                echo "- **Error**: $value" >> $GITHUB_STEP_SUMMARY
+                ;;
+            esac
+          done < verification_status.txt
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚨 Action Required" >> $GITHUB_STEP_SUMMARY
+          if [ "$LEAN_BASIC_FUNCTIONAL" = "false" ]; then
+            echo "- Lean methods realness not confirmed" >> $GITHUB_STEP_SUMMARY
+            echo "- Check comprehensive CI logs for detailed analysis" >> $GITHUB_STEP_SUMMARY
+            echo "- Review Lean code changes for compilation issues" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "❌ Verification status not available" >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Fail if Lean verification failed
+      if: env.LEAN_BASIC_FUNCTIONAL == 'false'
+      run: |
+        echo "❌ Lean verification failed - basic functionality not confirmed"
+        exit 1

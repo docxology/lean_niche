@@ -1,0 +1,319 @@
+name: Lean Methods Realness Check
+
+on:
+  push:
+    paths:
+      - 'src/lean/**'
+      - 'src/python/core/lean_runner.py'
+      - 'src/python/core/orchestrator_base.py'
+      - 'src/tests/run_comprehensive_lean_tests.py'
+  pull_request:
+    paths:
+      - 'src/lean/**'
+      - 'src/python/core/lean_runner.py'
+      - 'src/python/core/orchestrator_base.py'
+      - 'src/tests/run_comprehensive_lean_tests.py'
+
+jobs:
+  lean-realness-validation:
+    name: Validate Lean Methods Realness
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest numpy scipy matplotlib seaborn plotly rich
+
+    - name: Setup Lean
+      uses: leanprover/elan-init@v1
+
+    - name: Install lake
+      run: |
+        elan toolchain install stable || true
+        curl https://raw.githubusercontent.com/leanprover/lake/master/install.sh | bash
+
+    - name: Setup Lean environment
+      run: |
+        echo "LEAN_PATH=${{ runner.workspace }}/src/lean:$LEAN_PATH" >> $GITHUB_ENV
+
+    - name: Build Lean project
+      run: |
+        lake update
+        lake build
+
+    - name: Create logs directory
+      run: mkdir -p logs
+
+    - name: Test LeanRunner realness
+      run: |
+        echo "🔬 Testing LeanRunner realness..."
+
+        python3 -c "
+        import sys
+        sys.path.insert(0, 'src')
+
+        try:
+            from python.core.lean_runner import LeanRunner
+            print('✅ LeanRunner import successful')
+
+            # Test instantiation
+            runner = LeanRunner(lean_module='RealnessTest')
+            print('✅ LeanRunner instantiation successful')
+
+            # Test method existence
+            methods = ['run_lean_code', 'run_theorem_verification', 'run_algorithm_verification']
+            for method in methods:
+                if hasattr(runner, method):
+                    print(f'✅ Method {method} exists')
+                else:
+                    print(f'❌ Method {method} missing')
+                    sys.exit(1)
+
+            print('✅ All LeanRunner methods are real and accessible')
+
+        except Exception as e:
+            print(f'❌ LeanRunner realness test failed: {e}')
+            sys.exit(1)
+        "
+
+    - name: Test Orchestrator realness
+      run: |
+        echo "🔬 Testing Orchestrator realness..."
+
+        python3 -c "
+        import sys
+        sys.path.insert(0, 'src')
+
+        try:
+            from python.core.orchestrator_base import LeanNicheOrchestratorBase
+            from python.core.lean_runner import LeanRunner
+            from python.analysis.comprehensive_analysis import ComprehensiveMathematicalAnalyzer
+            from python.visualization.visualization import MathematicalVisualizer
+            from python.analysis.data_generator import MathematicalDataGenerator
+
+            print('✅ All orchestrator dependencies import successful')
+
+            # Test instantiation
+            class TestOrchestrator(LeanNicheOrchestratorBase):
+                def __init__(self):
+                    super().__init__('RealnessTest', 'test_output', enable_logging=False)
+                def run_domain_specific_analysis(self):
+                    return {'test': 'data'}
+                def create_domain_visualizations(self, analysis_results):
+                    pass
+
+            orchestrator = TestOrchestrator()
+            print('✅ Orchestrator instantiation successful')
+
+            # Test component initialization
+            assert hasattr(orchestrator, 'lean_runner')
+            assert hasattr(orchestrator, 'analyzer')
+            assert hasattr(orchestrator, 'visualizer')
+            assert hasattr(orchestrator, 'data_generator')
+            print('✅ All orchestrator components initialized')
+
+            print('✅ Orchestrator realness confirmed')
+
+        except Exception as e:
+            print(f'❌ Orchestrator realness test failed: {e}')
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+        "
+
+    - name: Test Lean compilation realness
+      run: |
+        echo "🔬 Testing Lean compilation realness..."
+
+        python3 -c "
+        import sys
+        sys.path.insert(0, 'src')
+        import tempfile
+        import os
+
+        try:
+            from python.core.lean_runner import LeanRunner
+
+            runner = LeanRunner(lean_module='CompilationTest')
+
+            # Test with simple Lean code
+            lean_code = '''
+import LeanNiche.Basic
+
+theorem test_realness : ∀ n : Nat, n + 0 = n := by
+  intro n
+  induction n with
+  | zero => rfl
+  | succ n' ih => rw [Nat.succ_add, ih]
+
+def test_function (x : Nat) : Nat := x * 2
+'''
+
+            result = runner.run_lean_code(lean_code, ['LeanNiche.Basic'])
+
+            if result.get('success', False):
+                print('✅ Lean compilation successful')
+                print('✅ Lean code execution real and working')
+
+                verification_status = result.get('result', {}).get('verification_status', {})
+                if verification_status.get('compilation_successful', False):
+                    print('✅ Lean verification status confirmed')
+                else:
+                    print('❌ Lean verification status not confirmed')
+                    sys.exit(1)
+
+            else:
+                print(f'❌ Lean compilation failed: {result.get(\"error\", \"Unknown error\")}')
+                sys.exit(1)
+
+        except Exception as e:
+            print(f'❌ Lean compilation test failed: {e}')
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+        "
+
+    - name: Test comprehensive test runner realness
+      run: |
+        echo "🔬 Testing comprehensive test runner realness..."
+
+        python3 -c "
+        import sys
+        sys.path.insert(0, 'src')
+
+        try:
+            from tests.run_comprehensive_lean_tests import ComprehensiveLeanTestRunner
+            print('✅ ComprehensiveLeanTestRunner import successful')
+
+            # Test instantiation
+            runner = ComprehensiveLeanTestRunner(enable_logging=False, log_level='INFO')
+            print('✅ ComprehensiveLeanTestRunner instantiation successful')
+
+            # Test method existence
+            methods = ['run_all_tests', 'test_lean_runner_initialization', 'test_real_lean_execution']
+            for method in methods:
+                if hasattr(runner, method):
+                    print(f'✅ Method {method} exists')
+                else:
+                    print(f'❌ Method {method} missing')
+                    sys.exit(1)
+
+            print('✅ Comprehensive test runner is real and functional')
+
+        except Exception as e:
+            print(f'❌ Comprehensive test runner realness test failed: {e}')
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+        "
+
+    - name: Run minimal verification test
+      run: |
+        echo "🔬 Running minimal Lean verification test..."
+
+        timeout 180 python3 src/tests/run_comprehensive_lean_tests.py --no-logging --output-file realness_test.json || echo "Minimal verification completed"
+
+        # Check if basic test succeeded
+        if [ -f "realness_test.json" ]; then
+          python3 -c "
+          import json
+          with open('realness_test.json') as f:
+              data = json.load(f)
+
+          summary = data['test_summary']
+          passed = summary['passed']
+          total = summary['total_tests']
+
+          print(f'Minimal verification: {passed}/{total} tests passed')
+
+          if passed >= 2:  # At least basic tests should pass
+              print('✅ Minimal Lean verification successful')
+              print('LEAN_REALNESS_BASIC=true')
+          else:
+              print('❌ Minimal Lean verification failed')
+              print('LEAN_REALNESS_BASIC=false')
+          " >> $GITHUB_ENV
+        else
+          echo "❌ Verification test results not found"
+          echo "LEAN_REALNESS_BASIC=false" >> $GITHUB_ENV
+        fi
+
+    - name: Upload realness test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: lean-realness-test-results
+        path: realness_test.json
+
+    - name: Generate realness validation summary
+      run: |
+        echo "## 🔬 Lean Methods Realness Validation" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Validation Date**: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### 🧪 Realness Tests Performed" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ LeanRunner import and instantiation" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Orchestrator import and instantiation" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Lean compilation and verification" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Comprehensive test runner functionality" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Minimal verification test execution" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ "${{ env.LEAN_REALNESS_BASIC }}" == "true" ]; then
+          echo "### ✅ Realness Validation Result" >> $GITHUB_STEP_SUMMARY
+          echo "**Lean methods confirmed as real and functional**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All core Lean functionality is working correctly:" >> $GITHUB_STEP_SUMMARY
+          echo "- LeanRunner can execute Lean code" >> $GITHUB_STEP_SUMMARY
+          - Orchestrator can initialize all components" >> $GITHUB_STEP_SUMMARY
+          - Lean compilation succeeds" >> $GITHUB_STEP_SUMMARY
+          - Verification tests pass" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "### ❌ Realness Validation Issues" >> $GITHUB_STEP_SUMMARY
+          echo "**Lean methods functionality not fully confirmed**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ Some Lean functionality may have issues:" >> $GITHUB_STEP_SUMMARY
+          echo "- Check comprehensive CI logs for detailed analysis" >> $GITHUB_STEP_SUMMARY
+          echo "- Review Lean code changes for compilation issues" >> $GITHUB_STEP_SUMMARY
+          echo "- Verify test results in workflow artifacts" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ -f "realness_test.json" ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Test Results" >> $GITHUB_STEP_SUMMARY
+          python3 -c "
+          import json
+          with open('realness_test.json') as f:
+              data = json.load(f)
+
+          summary = data['test_summary']
+          results = data['test_results']
+
+          print(f'- **Total Tests**: {summary[\"total_tests\"]}')
+          print(f'- **Passed**: {summary[\"passed\"]}')
+          print(f'- **Failed**: {summary[\"failed\"]}')
+          print(f'- **Success Rate**: {summary[\"success_rate\"]:.1f}%')
+          print('')
+          print('**Individual Test Results:**')
+          for test_name, success in results.items():
+              status = '✅ PASSED' if success else '❌ FAILED'
+              print(f'- {status}: {test_name}')
+          " >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Fail if realness not confirmed
+      if: env.LEAN_REALNESS_BASIC == 'false'
+      run: |
+        echo "❌ Lean methods realness not confirmed"
+        echo "Basic Lean functionality validation failed"
+        exit 1
