@@ -275,6 +275,14 @@ end IntegratedArtifacts
                 print("📂 Additional integrated artifacts saved:")
                 for k, p in art_saved.items():
                     print(f"  - {k}: {p}")
+            # copy artifact into Lean source for lake build
+            try:
+                project_root = Path(__file__).parent.parent
+                dest = project_root / 'src' / 'lean' / 'LeanNiche' / 'generated_artifacts'
+                dest.mkdir(parents=True, exist_ok=True)
+                (dest / art_file.name).write_text(art_code, encoding='utf-8')
+            except Exception:
+                pass
         except Exception as e:
             print(f"⚠️ Could not generate extra integrated artifacts: {e}")
 

@@ -226,6 +226,15 @@ end ControlTheoryArtifacts
             with open(extra_file, 'w') as ef:
                 ef.write(extra_code)
 
+            # Also copy artifact into Lean source tree so lake can build it
+            try:
+                project_root = Path(__file__).parent.parent
+                dest = project_root / 'src' / 'lean' / 'LeanNiche' / 'generated_artifacts'
+                dest.mkdir(parents=True, exist_ok=True)
+                (dest / extra_file.name).write_text(extra_code, encoding='utf-8')
+            except Exception:
+                pass
+
             # Try running Lean on the artifact; if Lean can't import project modules,
             # still extract the trivial theorem/def names from the .lean file and
             # write them into the proof JSON artifacts so tests can see them.

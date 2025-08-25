@@ -97,14 +97,37 @@ class LeanRunner:
     def _execute_lean(self, lean_file: Path) -> Dict[str, Any]:
         """Execute Lean file and capture output"""
         start_time = datetime.now()
-
         try:
+            # Run Lean from the project root so that module search paths and
+            # lake build outputs (.olean) are discoverable. Also extend LEAN_PATH
+            # to include local `src/lean` and any `.lake/**/build` directories.
+            project_root = Path(__file__).parent.parent.parent
+
+            # Build LEAN_PATH environment
+            env = os.environ.copy()
+            lean_path_entries = []
+            # prefer repo src/lean
+            src_lean = project_root / 'src' / 'lean'
+            if src_lean.exists():
+                lean_path_entries.append(str(src_lean))
+
+            # include any lake build directories (where .olean files live)
+            for p in project_root.glob('.lake/**/build'):
+                if p.exists():
+                    lean_path_entries.append(str(p))
+
+            # prepend to existing LEAN_PATH
+            existing_lp = env.get('LEAN_PATH', '')
+            combined = ':'.join([*lean_path_entries, existing_lp]) if existing_lp else ':'.join(lean_path_entries)
+            env['LEAN_PATH'] = combined
+
             result = subprocess.run(
                 [self.lean_path, str(lean_file)],
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
-                cwd=lean_file.parent
+                cwd=str(project_root),
+                env=env
             )
 
             execution_time = (datetime.now() - start_time).total_seconds()
@@ -819,6 +842,35 @@ Failed: {metrics.get('failed_tests', 0)}
                 found_theorems.add(m)
             for m in re.findall(r"\bdef\s+([A-Za-z0-9_]+)", txt):
                 found_defs.add(m)
+
+        # Copy any discovered .lean artifacts into the project's Lean source
+        # tree so `lake build` will compile them and produce .olean artifacts
+        # discoverable by Lean during subsequent runs.
+        try:
+            project_root = Path(__file__).parent.parent.parent
+            dest_root = project_root / 'src' / 'lean' / 'LeanNiche' / 'generated_artifacts'
+            dest_root.mkdir(parents=True, exist_ok=True)
+            copied_any = False
+            for lp in output_dir.rglob('*.lean'):
+                try:
+                    dest = dest_root / lp.name
+                    # overwrite to ensure latest artifact
+                    dest.write_text(lp.read_text(encoding='utf-8'), encoding='utf-8')
+                    copied_any = True
+                except Exception:
+                    continue
+
+            # If we copied any artifacts, attempt a lake build so .olean files are created
+            if copied_any:
+                try:
+                    # run lake update/build from project root
+                    subprocess.run(['lake', 'update'], cwd=str(project_root), check=False)
+                    subprocess.run(['lake', 'build'], cwd=str(project_root), check=False)
+                except Exception:
+                    # don't fail artifact consolidation on build errors
+                    pass
+        except Exception:
+            pass
 
         # Merge into theorems JSON
         try:
