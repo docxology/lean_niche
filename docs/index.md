@@ -29,7 +29,7 @@ Welcome to the LeanNiche comprehensive documentation. This hub provides access t
 
 ### Project Documentation
 - **[📊 Code Metrics](code_metrics.md)** - Project statistics and metrics
-- **[📋 Implementation Summary](../COMPREHENSIVE_IMPLEMENTATION_SUMMARY.md)** - Complete implementation overview
+- **[📊 Execution Reports](../outputs/examples_execution_report.md)** - Generated execution report
 
 ## 🎯 Quick Start
 
