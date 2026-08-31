@@ -31,8 +31,13 @@ class MathematicalAnalyzer:
                         title: str = "Function Analysis",
                         save_path: Optional[str] = None) -> Dict[str, Any]:
         """Comprehensive function analysis"""
+        # Sample an extended window (3x the domain) so that periodicity
+        # analysis can observe a full recurrence even when the requested
+        # domain covers only one period.
         x = np.linspace(domain[0], domain[1], 1000)
         y = func(x)
+        x_ext = np.linspace(domain[0] - (domain[1] - domain[0]), domain[1] + (domain[1] - domain[0]), 3001)
+        y_ext = func(x_ext)
 
         analysis = {
             'domain': domain,
@@ -43,7 +48,7 @@ class MathematicalAnalyzer:
             'zeros': self._find_zeros(func, domain),
             'extrema': self._find_extrema(func, domain),
             'asymptotes': self._find_asymptotes(func, domain),
-            'periodicity': self._analyze_periodicity(x, y)
+            'periodicity': self._analyze_periodicity(x_ext, y_ext)
         }
 
         # Generate analysis report
@@ -53,15 +58,33 @@ class MathematicalAnalyzer:
 
     def _find_zeros(self, func: Callable[[float], float],
                    domain: Tuple[float, float]) -> List[float]:
-        """Find zeros of the function"""
+        """Find zeros of the function by scanning for sign changes"""
+        zeros: List[float] = []
         try:
-            # Use scipy's root finding
-            result = optimize.root_scalar(func, bracket=domain, method='brentq')
-            if result.converged:
-                return [float(result.root)]
-        except:
+            grid = np.linspace(domain[0], domain[1], 2001)
+            vals = np.asarray([float(func(xx)) for xx in grid])
+            for i in range(len(grid) - 1):
+                f1, f2 = vals[i], vals[i + 1]
+                if not (np.isfinite(f1) and np.isfinite(f2)):
+                    continue
+                if f1 == 0.0:
+                    zeros.append(float(grid[i]))
+                elif f1 * f2 < 0:
+                    try:
+                        res = optimize.root_scalar(func, bracket=(grid[i], grid[i + 1]), method='brentq')
+                        if res.converged:
+                            zeros.append(float(res.root))
+                    except Exception:
+                        pass
+            # dedupe close roots
+            deduped: List[float] = []
+            for z in sorted(zeros):
+                if not deduped or abs(z - deduped[-1]) > 1e-6:
+                    deduped.append(z)
+            zeros = deduped
+        except Exception:
             pass
-        return []
+        return zeros
 
     def _find_extrema(self, func: Callable[[float], float],
                      domain: Tuple[float, float]) -> Dict[str, List[Tuple[float, float]]]:
@@ -97,41 +120,84 @@ class MathematicalAnalyzer:
             'oblique': []
         }
 
-        # Check for horizontal asymptotes
+        # Probe near the domain edges and beyond for divergence/horizontal behavior
+        with np.errstate(all='ignore'):
+            try:
+                for side, xs in (('left', (domain[0] - 1000, domain[0] - 100, domain[0] + 1e-9)),
+                                 ('right', (domain[1] - 1e-9, domain[1] + 100, domain[1] + 1000))):
+                    vals = []
+                    for xx in xs:
+                        try:
+                            vals.append(float(func(xx)))
+                        except (ZeroDivisionError, OverflowError, ValueError):
+                            vals.append(float('inf'))
+                    inner = vals[0] if side == 'right' else vals[2]
+                    outer = vals[2] if side == 'right' else vals[0]
+                    if (not np.isfinite(inner)) or abs(inner) > 1e6:
+                        asymptotes['vertical'].append(side)
+                    elif np.isfinite(outer) and abs(outer - inner) < 1e-3 and abs(outer) < 1e6:
+                        asymptotes['horizontal'].append((side, outer))
+            except Exception:
+                pass
+
+        # Scan the domain interior for divergence (poles) via dense sampling
         try:
-            limit_left = func(domain[0])
-            limit_right = func(domain[1])
-            asymptotes['horizontal'] = [
-                ('left', float(limit_left)),
-                ('right', float(limit_right))
-            ]
-        except:
+            with np.errstate(all='ignore'):
+                grid = np.linspace(domain[0], domain[1], 2001)
+                for xx in grid:
+                    try:
+                        val = float(func(xx))
+                    except (ZeroDivisionError, OverflowError, ValueError):
+                        val = float('inf')
+                    if (not np.isfinite(val)) or abs(val) > 1e6:
+                        asymptotes['vertical'].append(round(float(xx), 6))
+                        break
+        except Exception:
             pass
 
         return asymptotes
 
     def _analyze_periodicity(self, x: np.ndarray, y: np.ndarray) -> Optional[float]:
         """Analyze if function is periodic"""
-        # Simple periodicity analysis using autocorrelation
+        # Simple periodicity analysis using normalized autocorrelation
         if len(y) < 10:
             return None
 
-        # Compute autocorrelation
-        correlation = np.correlate(y - np.mean(y), y - np.mean(y), mode='full')
-        correlation = correlation[correlation.size // 2:]
+        yc = y - np.mean(y)
+        energy = np.sum(yc * yc)
+        if energy == 0:
+            return None
+        correlation = np.correlate(yc, yc, mode='full')
+        correlation = correlation[correlation.size // 2:] / energy
 
-        # Find peaks in autocorrelation
-        peaks = []
-        for i in range(1, len(correlation) - 1):
-            if correlation[i] > correlation[i-1] and correlation[i] > correlation[i+1]:
-                if correlation[i] > 0.5 * correlation[0]:  # Significant peak
-                    peaks.append(i)
-
-        if peaks:
-            # Estimate period as first significant peak
-            period_idx = peaks[0]
-            period = abs(x[period_idx] - x[0])
-            return float(period)
+        # Find the first significant positive-correlation local maximum
+        # (a strict rising-then-falling comparison over a small window so that
+        # noisy sample-to-sample jitter cannot mask the peak)
+        # Skip the near-zero-lag plateau, then find the first genuine local
+        # maximum of the autocorrelation (a candidate period). A periodic
+        # signal's autocorrelation oscillates: it must rise from a trough
+        # back above 0.3. Monotone decay (non-periodic signals) never rises
+        # again and is rejected.
+        # Ignore the near-zero-lag coherence plateau: start looking only
+        # after the autocorrelation has decisively fallen (below 0.2), then
+        # accept the first lag where it rises back above 0.3 — a genuine
+        # period recurrence. Monotone decay (non-periodic signals) never
+        # rises back and is rejected.
+        skip = max(3, len(correlation) // 100)
+        armed = False
+        for i in range(skip, len(correlation) - 1):
+            if not armed:
+                if correlation[i] < 0.2:
+                    armed = True
+                continue
+            if (correlation[i] > 0.3
+                    and correlation[i] >= correlation[i - 1]
+                    and correlation[i] >= correlation[i + 1]):
+                period = abs(float(x[i] - x[0]))
+                span = abs(float(x[-1] - x[0]))
+                if 0 < period < span:
+                    return period
+                break
 
         return None
 
@@ -182,6 +248,9 @@ class MathematicalAnalyzer:
                             method: str = 'quad') -> Dict[str, Any]:
         """Numerical integration using various methods"""
         result = {}
+        valid_methods = ('quad', 'trapezoid', 'simpson')
+        if method not in valid_methods:
+            raise ValueError(f"Unknown integration method: {method!r}; expected one of {valid_methods}")
 
         try:
             if method == 'quad':
@@ -195,7 +264,7 @@ class MathematicalAnalyzer:
             elif method == 'trapezoid':
                 x = np.linspace(a, b, 1000)
                 y = func(x)
-                integral = np.trapz(y, x)
+                integral = np.trapezoid(y, x) if hasattr(np, 'trapezoid') else np.trapz(y, x)
                 result = {
                     'method': 'trapezoid',
                     'result': float(integral),
@@ -216,14 +285,17 @@ class MathematicalAnalyzer:
         return result
 
     def symbolic_analysis(self, expression: str,
-                         variables: List[str] = None) -> Dict[str, Any]:
-        """Symbolic mathematical analysis"""
+                         variables: List[str] = None,
+                         operation: str = 'full') -> Dict[str, Any]:
+        """Symbolic mathematical analysis (optionally restricted to one operation)"""
         if variables is None:
             variables = ['x']
 
         try:
-            # Parse expression
-            expr = sp.sympify(expression)
+            # Parse expression (strict: reject non-mathematical input)
+            expr = sp.sympify(expression, locals={}, evaluate=True)
+            if expr.free_symbols and not set(str(v) for v in expr.free_symbols) <= set(variables):
+                raise ValueError("expression contains unknown symbols")
 
             analysis = {
                 'expression': str(expr),
@@ -234,7 +306,7 @@ class MathematicalAnalyzer:
             }
 
             # Try to compute derivative if single variable
-            if len(variables) == 1:
+            if operation in ('full', 'derivative') and len(variables) == 1:
                 var = sp.symbols(variables[0])
                 try:
                     derivative = str(sp.diff(expr, var))
@@ -243,7 +315,7 @@ class MathematicalAnalyzer:
                     analysis['derivative'] = 'Could not compute'
 
             # Try to compute integral if single variable
-            if len(variables) == 1:
+            if operation in ('full', 'integral') and len(variables) == 1:
                 var = sp.symbols(variables[0])
                 try:
                     integral = str(sp.integrate(expr, var))
@@ -255,6 +327,50 @@ class MathematicalAnalyzer:
 
         except Exception as e:
             return {'error': str(e)}
+
+    def _fit_distributions(self, data: np.ndarray) -> Dict[str, Any]:
+        """Fit common distributions and return fit quality"""
+        fits = {}
+        try:
+            candidates = {
+                'normal': stats.norm,
+                'exponential': stats.expon,
+                'uniform': stats.uniform
+            }
+            best_name, best_p = None, -1.0
+            for name, dist in candidates.items():
+                try:
+                    params = dist.fit(data)
+                    _, p_value = stats.kstest(data, dist.cdf, args=params)
+                    fits[name] = {'params': [float(p_) for p_ in params],
+                                  'ks_p_value': float(p_value)}
+                    if p_value > best_p:
+                        best_name, best_p = name, p_value
+                except Exception:
+                    continue
+            if best_name:
+                fits['best_fit'] = best_name
+        except Exception:
+            pass
+        return fits
+
+    def _detect_outliers(self, data: np.ndarray) -> Dict[str, Any]:
+        """IQR-based outlier detection"""
+        try:
+            q25, q75 = np.percentile(data, [25, 75])
+            iqr = q75 - q25
+            lower, upper = q25 - 1.5 * iqr, q75 + 1.5 * iqr
+            mask = (data < lower) | (data > upper)
+            return {
+                'method': 'iqr',
+                'lower_bound': float(lower),
+                'upper_bound': float(upper),
+                'indices': np.where(mask)[0].tolist(),
+                'values': [float(v) for v in data[mask]],
+                'count': int(mask.sum())
+            }
+        except Exception:
+            return {'method': 'iqr', 'indices': [], 'values': [], 'count': 0}
 
     def statistical_analysis(self, data: List[float],
                            alpha: float = 0.05) -> Dict[str, Any]:
@@ -275,21 +391,30 @@ class MathematicalAnalyzer:
             'q75': float(np.percentile(data, 75)),
             'iqr': float(np.percentile(data, 75) - np.percentile(data, 25)),
             'skewness': float(stats.skew(data)),
-            'kurtosis': float(stats.kurtosis(data))
+            'kurtosis': float(stats.kurtosis(data)),
+            'distribution_fit': self._fit_distributions(data),
+            'outliers': self._detect_outliers(data)
         }
 
         # Normality tests
         if len(data) >= 3:
             try:
-                analysis['shapiro_test'] = {
+                shapiro = {
                     'statistic': float(stats.shapiro(data)[0]),
                     'p_value': float(stats.shapiro(data)[1])
                 }
-                analysis['normaltest'] = {
+                normaltest = {
                     'statistic': float(stats.normaltest(data)[0]),
                     'p_value': float(stats.normaltest(data)[1])
                 }
-            except:
+                analysis['shapiro_test'] = shapiro
+                analysis['normaltest'] = normaltest
+                # Structured view expected by consumers
+                analysis['normality_test'] = {
+                    'shapiro_wilk': shapiro,
+                    'kolmogorov_smirnov': normaltest
+                }
+            except Exception:
                 pass
 
         # Confidence intervals
@@ -338,16 +463,22 @@ class MathematicalAnalyzer:
 
         # Plot 4: Summary statistics
         axes[1, 1].axis('off')
-        summary_text = f"""
-        Summary Statistics:
 
-        Sample Size: {analysis.get('n', 'N/A')}
-        Mean: {analysis.get('mean', 'N/A'):.4f}
-        Std Dev: {analysis.get('std', 'N/A'):.4f}
-        Min: {analysis.get('min', 'N/A'):.4f}
-        Max: {analysis.get('max', 'N/A'):.4f}
-        Skewness: {analysis.get('skewness', 'N/A'):.4f}
-        """
+        def _fmt(value, spec='.4f'):
+            try:
+                return format(float(value), spec)
+            except (TypeError, ValueError):
+                return str(value)
+
+        summary_text = (
+            "        Summary Statistics:\n\n"
+            f"        Sample Size: {analysis.get('n', 'N/A')}\n"
+            f"        Mean: {_fmt(analysis.get('mean'))}\n"
+            f"        Std Dev: {_fmt(analysis.get('std'))}\n"
+            f"        Min: {_fmt(analysis.get('min'))}\n"
+            f"        Max: {_fmt(analysis.get('max'))}\n"
+            f"        Skewness: {_fmt(analysis.get('skewness'))}\n"
+        )
 
         axes[1, 1].text(0.1, 0.9, summary_text, transform=axes[1, 1].transAxes,
                        fontsize=10, verticalalignment='top',

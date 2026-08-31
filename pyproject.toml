@@ -24,7 +24,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Visualization",
     "Topic :: Education",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 keywords = ["mathematics", "research", "lean", "dynamical-systems", "visualization"]
 dependencies = [
     "matplotlib>=3.8.0",

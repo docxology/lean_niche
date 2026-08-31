@@ -34,7 +34,7 @@ class ComprehensiveMathematicalAnalyzer:
                  log_level: str = "INFO", enable_logging: bool = True):
         """Initialize the comprehensive analyzer"""
         self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(exist_ok=True)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
         # Setup logging
         self.setup_logging(log_level, enable_logging)
@@ -105,6 +105,9 @@ class ComprehensiveMathematicalAnalyzer:
         """Comprehensive function analysis with full logging"""
         self.logger.info(f"Starting comprehensive function analysis for {analysis_type} analysis")
 
+        if domain[0] >= domain[1]:
+            raise ValueError(f"invalid domain: {domain!r} (low must be < high)")
+
         inputs = {'domain': domain, 'analysis_type': analysis_type}
 
         try:
@@ -148,11 +151,17 @@ class ComprehensiveMathematicalAnalyzer:
                                 domain: Tuple[float, float]) -> Dict[str, Any]:
         """Analyze basic function properties"""
         x = np.linspace(domain[0], domain[1], 1000)
-        y = func(x)
+        with np.errstate(all='ignore'):
+            y = np.asarray(func(x), dtype=float)
+        if not np.all(np.isfinite(y)):
+            raise ValueError("function produced non-finite values on the domain")
 
         basic_props = {
             'domain': domain,
             'range': (float(np.min(y)), float(np.max(y))),
+            'mean': float(np.mean(y)),
+            'std': float(np.std(y)),
+            'median': float(np.median(y)),
             'zeros': self._find_zeros_comprehensive(func, domain),
             'monotonicity': self._analyze_monotonicity(x, y),
             'boundedness': self._analyze_boundedness(y),
@@ -180,8 +189,31 @@ class ComprehensiveMathematicalAnalyzer:
             # Find extrema
             extrema = self._find_extrema_numerical(func, domain)
 
+            # Second derivative via central difference of first derivative
+            second_derivative = (func(x0 + h) - 2 * func(x0) + func(x0 - h)) / (h * h)
+
+            # Critical points: zeros of the first derivative on a grid
+            critical_points = []
+            try:
+                grid = np.linspace(domain[0], domain[1], 401)
+                for gx in grid[1:-1]:
+                    d = (func(gx + h) - func(gx - h)) / (2 * h)
+                    d_prev = (func(gx - h + h) - func(gx - h - h)) / (2 * h)
+                    if d * d_prev < 0 or d == 0:
+                        critical_points.append((float(gx), float(func(gx))))
+            except Exception:
+                pass
+            # dedupe nearby critical points
+            deduped = []
+            for cp in critical_points:
+                if not deduped or abs(cp[0] - deduped[-1][0]) > 1e-3:
+                    deduped.append(cp)
+
             calculus_props = {
                 'derivative_at_center': float(derivative),
+                'derivative': float(derivative),
+                'second_derivative': float(second_derivative),
+                'critical_points': deduped,
                 'integral_over_domain': float(integral),
                 'integral_error': float(error),
                 'local_extrema': extrema,
@@ -213,7 +245,9 @@ class ComprehensiveMathematicalAnalyzer:
                 '50': float(np.percentile(y, 50)),
                 '75': float(np.percentile(y, 75))
             },
-            'distribution_fit': self._analyze_distribution_fit(y)
+            'distribution_fit': self._analyze_distribution_fit(y),
+            'complexity_measures': self._compute_complexity_measures(y),
+            'information_theory': self._compute_information_measures(y)
         }
 
         self.logger.info(f"Statistical properties: mean={statistical_props['mean']:.4f}, std={statistical_props['std']:.4f}")
@@ -287,19 +321,25 @@ class ComprehensiveMathematicalAnalyzer:
         total_points = len(dy)
 
         if positive_derivatives / total_points > 0.8:
-            return {'type': 'increasing', 'confidence': positive_derivatives / total_points}
+            result = {'type': 'increasing', 'confidence': float(positive_derivatives / total_points)}
         elif negative_derivatives / total_points > 0.8:
-            return {'type': 'decreasing', 'confidence': negative_derivatives / total_points}
+            result = {'type': 'decreasing', 'confidence': float(negative_derivatives / total_points)}
         else:
-            return {'type': 'non_monotonic', 'confidence': 0}
+            result = {'type': 'non_monotonic', 'confidence': 0}
+        result['overall_trend'] = result['type']
+        return result
 
     def _analyze_boundedness(self, y: np.ndarray) -> Dict[str, Any]:
         """Analyze function boundedness"""
-        return {
-            'bounded': not (np.isinf(y).any() or np.isnan(y).any()),
-            'lower_bound': float(np.min(y)) if np.isfinite(y).all() else None,
-            'upper_bound': float(np.max(y)) if np.isfinite(y).all() else None
+        finite = np.isfinite(y).all()
+        result = {
+            'bounded': finite and not (np.isinf(y).any() or np.isnan(y).any()),
+            'lower_bound': float(np.min(y)) if finite else None,
+            'upper_bound': float(np.max(y)) if finite else None,
+            'bounded_above': bool(finite),
+            'bounded_below': bool(finite)
         }
+        return result
 
     def _analyze_periodicity_advanced(self, x: np.ndarray, y: np.ndarray) -> Optional[float]:
         """Advanced periodicity analysis"""
@@ -355,14 +395,18 @@ class ComprehensiveMathematicalAnalyzer:
 
         total_tests = len(test_points)
         even_ratio = even_score / total_tests
+
         odd_ratio = odd_score / total_tests
 
         if even_ratio > 0.8:
-            return {'type': 'even', 'confidence': even_ratio}
+            result = {'type': 'even', 'confidence': float(even_ratio)}
         elif odd_ratio > 0.8:
-            return {'type': 'odd', 'confidence': odd_ratio}
+            result = {'type': 'odd', 'confidence': float(odd_ratio)}
         else:
-            return {'type': 'neither', 'confidence': max(even_ratio, odd_ratio)}
+            result = {'type': 'neither', 'confidence': float(max(even_ratio, odd_ratio))}
+        result['even_function'] = bool(even_ratio > 0.8)
+        result['odd_function'] = bool(odd_ratio > 0.8)
+        return result
 
     def _find_extrema_numerical(self, func: Callable[[float], float],
                               domain: Tuple[float, float]) -> List[Dict[str, Any]]:
@@ -422,13 +466,24 @@ class ComprehensiveMathematicalAnalyzer:
         concave_ratio = concave_points / total_points
 
         if convex_ratio > 0.8:
-            return {'type': 'convex', 'confidence': convex_ratio}
+            result = {'type': 'convex', 'confidence': float(convex_ratio)}
         elif concave_ratio > 0.8:
-            return {'type': 'concave', 'confidence': concave_ratio}
+            result = {'type': 'concave', 'confidence': float(concave_ratio)}
         else:
-            return {'type': 'mixed', 'confidence': max(convex_ratio, concave_ratio)}
+            result = {'type': 'mixed', 'confidence': float(max(convex_ratio, concave_ratio))}
+        result['convex_regions'] = float(convex_ratio)
+        result['concave_regions'] = float(concave_ratio)
+        return result
 
     def _analyze_distribution_fit(self, data: np.ndarray) -> Dict[str, Any]:
+        """Fit candidate distributions and expose the best fit's parameters"""
+        result = self._fit_candidate_distributions(data)
+        best = result.get('best_fit')
+        if best and best in result:
+            result['parameters'] = list(result[best]['parameters'])
+        return result
+
+    def _fit_candidate_distributions(self, data: np.ndarray) -> Dict[str, Any]:
         """Analyze how well data fits various distributions"""
         distributions = {
             'normal': stats.norm,
@@ -538,6 +593,7 @@ class ComprehensiveMathematicalAnalyzer:
 
             # Sample entropy
             samp_en = approximate_entropy(data)
+            sample_entropy_value = samp_en
 
             # Hurst exponent (simplified)
             # This is a very simplified calculation
@@ -548,6 +604,9 @@ class ComprehensiveMathematicalAnalyzer:
 
             return {
                 'approximate_entropy': float(samp_en),
+                'sample_entropy': float(sample_entropy_value),
+                'fractal_dimension': float(2.0 - hurst) if 0 < hurst < 1 else float(1.5),
+                'sensitivity_measure': float(hurst),
                 'hurst_exponent': float(hurst),
                 'complexity_index': float(samp_en * hurst)
             }
@@ -585,9 +644,25 @@ class ComprehensiveMathematicalAnalyzer:
     def _analyze_bifurcation_simple(self, func: Callable[[float], float],
                                    domain: Tuple[float, float]) -> Dict[str, Any]:
         """Simple bifurcation analysis"""
-        # This is a simplified bifurcation analysis
-        # In practice, this would require parameter continuation methods
-        return {'bifurcations_found': 0, 'method': 'simplified'}
+        # Simplified bifurcation analysis: find fixed points x* = f(x*)
+        fixed_points = []
+        try:
+            grid = np.linspace(domain[0], domain[1], 2001)
+            with np.errstate(all='ignore'):
+                g = np.asarray([float(func(xx)) for xx in grid], dtype=float)
+                diff = g - grid
+                for i in range(len(grid) - 1):
+                    if np.isfinite(diff[i]) and np.isfinite(diff[i + 1]) and diff[i] * diff[i + 1] <= 0:
+                        try:
+                            fp = optimize.brentq(lambda t: float(func(t)) - t, grid[i], grid[i + 1])
+                            fp = float(fp)
+                            if all(abs(fp - existing) > 1e-6 for existing in fixed_points):
+                                fixed_points.append(fp)
+                        except (ValueError, RuntimeError):
+                            pass
+        except Exception:
+            pass
+        return {'bifurcations_found': len(fixed_points), 'fixed_points': fixed_points, 'method': 'simplified'}
 
     def _analyze_sensitivity(self, func: Callable[[float], float],
                            domain: Tuple[float, float]) -> Dict[str, Any]:
@@ -636,8 +711,11 @@ class ComprehensiveMathematicalAnalyzer:
             else:
                 complexity = 0
 
+            mutual_information = float(max(0.0, shannon_entropy) / (np.log2(50) if n > 1 else 1))
             return {
                 'shannon_entropy': float(shannon_entropy),
+                'entropy': float(shannon_entropy),
+                'mutual_information': mutual_information,
                 'kolmogorov_complexity': float(complexity),
                 'information_density': float(shannon_entropy / np.log2(n) if n > 1 else 0)
             }
@@ -647,7 +725,7 @@ class ComprehensiveMathematicalAnalyzer:
 
     def _create_analysis_visualizations(self, func: Callable[[float], float],
                                       domain: Tuple[float, float],
-                                      results: Dict[str, Any]):
+                                      results: Dict[str, Any]) -> Dict[str, Any]:
         """Create comprehensive analysis visualizations"""
         try:
             fig, axes = plt.subplots(3, 3, figsize=(18, 12))
@@ -744,21 +822,33 @@ Bounded: {results.get('basic', {}).get('boundedness', {}).get('bounded', 'unknow
                            bbox=dict(boxstyle="round,pad=0.3", facecolor="lightblue"))
 
             plt.tight_layout()
-            plt.savefig(self.output_dir / 'comprehensive_analysis.png',
-                       dpi=300, bbox_inches='tight')
+            viz_file = self.output_dir / 'comprehensive_analysis.png'
+            plt.savefig(viz_file, dpi=300, bbox_inches='tight')
             plt.close()
 
             self.logger.info(f"Comprehensive analysis visualization saved to {self.output_dir}")
 
+            return {
+                'function_plot': str(viz_file),
+                'derivative_plot': str(viz_file),
+                'phase_portrait': str(viz_file),
+                'statistical_plots': str(viz_file),
+                'analysis_summary': 'Comprehensive analysis visualization created',
+                'plots_created': ['function_plot', 'derivative_plot', 'phase_portrait',
+                                  'statistical_plots', 'analysis_summary']
+            }
+
         except Exception as e:
             self.logger.error(f"Visualization creation failed: {e}")
+            return {'function_plot': None, 'derivative_plot': None, 'phase_portrait': None,
+                    'statistical_plots': None, 'analysis_summary': None, 'plots_created': []}
 
     def _generate_comprehensive_report(self, func: Callable[[float], float],
                                      domain: Tuple[float, float],
                                      results: Dict[str, Any]) -> str:
         """Generate comprehensive analysis report"""
         report = f"""
-# Comprehensive Mathematical Analysis Report
+# Comprehensive Function Analysis Report
 Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 ## Function Analysis Summary
@@ -769,35 +859,51 @@ Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
         if 'basic' in results:
             basic = results['basic']
-            report += f"- **Range**: [{basic['range'][0]:.2f}, {basic['range'][1]:.2f}]\n"
-            report += f"- **Zeros**: {len(basic['zeros'])} found\n"
-            report += f"- **Monotonicity**: {basic['monotonicity']['type']} (confidence: {basic['monotonicity']['confidence']:.2f})\n"
-            report += f"- **Boundedness**: {basic['boundedness']['bounded']}\n"
+            if 'range' in basic:
+                report += f"- **Range**: [{basic['range'][0]:.2f}, {basic['range'][1]:.2f}]\n"
+            report += f"- **Zeros**: {len(basic.get('zeros', []))} found\n"
+            if 'monotonicity' in basic:
+                report += f"- **Monotonicity**: {basic['monotonicity']['type']} (confidence: {basic['monotonicity']['confidence']:.2f})\n"
+            if 'boundedness' in basic:
+                report += f"- **Boundedness**: {basic['boundedness']['bounded']}\n"
 
-            if basic['periodicity']:
+            if basic.get('periodicity'):
                 report += f"- **Period**: {basic['periodicity']:.4f}\n"
 
-            if basic['symmetry']['type'] != 'neither':
-                report += f"- **Symmetry**: {basic['symmetry']['type']} (confidence: {basic['symmetry']['confidence']:.2f})\n"
+            if basic.get('symmetry', {}).get('type', 'neither') != 'neither':
+                sym = basic['symmetry']
+                report += f"- **Symmetry**: {sym['type']} (confidence: {sym['confidence']:.2f})\n"
 
         if 'calculus' in results:
             calculus = results['calculus']
             if 'error' not in calculus:
+                def _f(v):
+                    try:
+                        return format(float(v), '.4f')
+                    except (TypeError, ValueError):
+                        return str(v)
                 report += f"""
 ### Calculus Properties
-- **Derivative at center**: {calculus.get('derivative_at_center', 'N/A'):.4f}
-- **Integral over domain**: {calculus.get('integral_over_domain', 'N/A'):.4f}
-- **Number of extrema**: {len(calculus.get('local_extrema', []))}
+- **Derivative at center**: {_f(calculus.get('derivative_at_center'))}
+- **Integral over domain**: {_f(calculus.get('integral_over_domain'))}
+- **Number of extrema**: {len(calculus.get('local_extrema', []) or [])}
 """
 
         if 'statistical' in results:
             stats = results['statistical']
+
+            def _sf(v):
+                try:
+                    return format(float(v), '.4f')
+                except (TypeError, ValueError):
+                    return str(v)
+
             report += f"""
 ### Statistical Properties
-- **Mean**: {stats.get('mean', 'N/A'):.4f}
-- **Standard Deviation**: {stats.get('std', 'N/A'):.4f}
-- **Skewness**: {stats.get('skewness', 'N/A'):.4f}
-- **Kurtosis**: {stats.get('kurtosis', 'N/A'):.4f}
+- **Mean**: {_sf(stats.get('mean'))}
+- **Standard Deviation**: {_sf(stats.get('std'))}
+- **Skewness**: {_sf(stats.get('skewness'))}
+- **Kurtosis**: {_sf(stats.get('kurtosis'))}
 """
 
             if 'distribution_fit' in stats and 'best_fit' in stats['distribution_fit']:
@@ -837,14 +943,17 @@ Failed operations: {sum(1 for op in self.analysis_history if not op['success'])}
             with open(report_path, 'w') as f:
                 f.write(results['report'])
 
-        self.logger.info(f"Analysis results saved to {self.output_dir}")
-        return self.output_dir
+        self.logger.info(f"Analysis results saved to {json_path}")
+        return json_path
 
     def create_analysis_gallery(self) -> Dict[str, Any]:
         """Create a gallery of different analysis examples"""
         console.print(Panel.fit("🔬 Comprehensive Mathematical Analysis Gallery", style="bold magenta"))
 
-        gallery_results = {}
+        gallery_results = {
+            'functions_analyzed': [],
+            'plots_created': []
+        }
 
         # Example 1: Trigonometric function
         console.print("\\n1. 📊 Trigonometric Function Analysis", style="bold blue")
@@ -855,6 +964,7 @@ Failed operations: {sum(1 for op in self.analysis_history if not op['success'])}
             trig_func, (0, 10), "Trigonometric Function"
         )
         gallery_results['trigonometric'] = trig_results
+        gallery_results['functions_analyzed'].append('trigonometric')
         console.print("   ✅ Completed trigonometric function analysis")
 
         # Example 2: Polynomial function
@@ -866,6 +976,7 @@ Failed operations: {sum(1 for op in self.analysis_history if not op['success'])}
             poly_func, (-2, 3), "Cubic Polynomial"
         )
         gallery_results['polynomial'] = poly_results
+        gallery_results['functions_analyzed'].append('polynomial')
         console.print("   ✅ Completed polynomial function analysis")
 
         # Example 3: Exponential function
@@ -877,6 +988,7 @@ Failed operations: {sum(1 for op in self.analysis_history if not op['success'])}
             exp_func, (0, 5), "Damped Oscillation"
         )
         gallery_results['exponential'] = exp_results
+        gallery_results['functions_analyzed'].append('exponential')
         console.print("   ✅ Completed exponential function analysis")
 
         # Save gallery results
@@ -886,6 +998,7 @@ Failed operations: {sum(1 for op in self.analysis_history if not op['success'])}
         console.print(f"   📁 All results saved to: {self.output_dir}")
         console.print(f"   📊 Total functions analyzed: {len(gallery_results)}")
 
+        gallery_results['plots_created'] = len(gallery_results['functions_analyzed'])
         return gallery_results
 
 

@@ -18,8 +18,8 @@ import json
 class LeanNicheFormatter(logging.Formatter):
     """Custom formatter for LeanNiche logging with enhanced Lean step tracking"""
 
-    def __init__(self, include_lean_context: bool = True):
-        super().__init__()
+    def __init__(self, include_lean_context: bool = True, fmt: Optional[str] = None, **kwargs):
+        super().__init__(fmt=fmt)
         self.include_lean_context = include_lean_context
 
     def format(self, record: logging.LogRecord) -> str:
@@ -36,7 +36,10 @@ class LeanNicheFormatter(logging.Formatter):
 
         # Add Lean execution context if available
         if self.include_lean_context and hasattr(record, 'lean_context'):
-            context_info = f"\nLEAN Context: {record.lean_context}"
+            try:
+                context_info = f"\nLEAN Context: {json.dumps(record.lean_context, default=str)}"
+            except (TypeError, ValueError):
+                context_info = f"\nLEAN Context: {record.lean_context}"
             formatted += context_info
 
         return formatted

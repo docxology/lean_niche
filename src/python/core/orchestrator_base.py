@@ -39,7 +39,10 @@ class LeanNicheOrchestratorBase(ABC):
     def __init__(self, domain_name: str, output_dir: str, enable_logging: bool = True):
         """Initialize the base orchestrator with comprehensive logging."""
         self.domain_name = domain_name
-        self.output_dir = Path(output_dir)
+        self.enable_logging = enable_logging
+        self.output_dir = Path(output_dir).expanduser()
+        if not self.output_dir.is_absolute():
+            self.output_dir = (Path.cwd() / self.output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         # Initialize logging first
@@ -854,14 +857,34 @@ end ControlTheory
         print(f"🔬 Executing comprehensive {self.domain_name} analysis...")
 
         try:
-            # Use comprehensive analyzer
-            analysis_results = self.analyzer.comprehensive_function_analysis(
+            # Lean verification of the domain analysis (errors are captured, not fatal)
+            verification_results = {}
+            try:
+                lean_code = self._generate_comprehensive_lean_code([])
+                lean_result = self.lean_runner.run_lean_code(lean_code)
+                verification_results = lean_result if isinstance(lean_result, dict) else {}
+            except Exception as lean_err:
+                print(f"⚠️ Lean verification warning: {str(lean_err)}")
+                verification_results = {'error': str(lean_err), 'success': False}
+            else:
+                if isinstance(verification_results, dict) and not verification_results.get('success', False):
+                    verification_results.setdefault('success', False)
+
+            # Comprehensive analyzer over a deterministic function
+            comprehensive_results = self.analyzer.comprehensive_function_analysis(
                 lambda x: x**2,  # Placeholder function
                 (-5, 5),
                 f"{self.domain_name} Analysis"
             )
 
             # Save analysis results
+            analysis_results = {
+                'analysis_results': analysis_data,
+                'comprehensive_results': comprehensive_results,
+                'lean_verification': verification_results,
+                'verification_results': verification_results,
+                'execution_time': verification_results.get('execution_time', 0.0)
+            }
             analysis_file = self.data_dir / f"{self.domain_name.lower().replace(' ', '_')}_analysis.json"
             with open(analysis_file, 'w') as f:
                 json.dump(analysis_results, f, indent=2, default=str)
@@ -871,7 +894,7 @@ end ControlTheory
 
         except Exception as e:
             print(f"⚠️ Analysis warning: {str(e)}")
-            return {}
+            return {'error': str(e)}
 
     def generate_comprehensive_report(self, analysis_results: Dict[str, Any]) -> Path:
         """Generate comprehensive report with all proof outcomes."""
@@ -981,6 +1004,14 @@ This report presents a comprehensive analysis of {self.domain_name} using LeanNi
     def create_execution_summary(self) -> Path:
         """Create comprehensive execution summary."""
         summary = {
+            'domain_name': self.domain_name,
+            'timestamp': datetime.now().isoformat(),
+            'directories_created': {
+                'proofs': str(self.proofs_dir),
+                'data': str(self.data_dir),
+                'visualizations': str(self.viz_dir),
+                'reports': str(self.reports_dir)
+            },
             'execution_info': {
                 'timestamp': datetime.now().isoformat(),
                 'domain': self.domain_name,
@@ -1000,7 +1031,7 @@ This report presents a comprehensive analysis of {self.domain_name} using LeanNi
             }
         }
 
-        summary_file = self.output_dir / "execution_summary.json"
+        summary_file = self.reports_dir / "execution_summary.json"
         with open(summary_file, 'w') as f:
             json.dump(summary, f, indent=2)
 
@@ -1072,8 +1103,12 @@ This report presents a comprehensive analysis of {self.domain_name} using LeanNi
             'lean_file': lean_file,
             'analysis_results': analysis_results,
             'comprehensive_results': comprehensive_results,
+            'verification_results': comprehensive_results.get('verification_results', {})
+            if isinstance(comprehensive_results, dict) else {},
             'report_file': report_file,
+            'report_path': report_file,
             'summary_file': summary_file,
+            'summary_path': summary_file,
             'proof_outcomes': self.proof_outcomes
         }
         # Ensure any .lean files written by examples are scanned and their

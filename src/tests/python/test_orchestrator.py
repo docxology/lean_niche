@@ -356,8 +356,9 @@ class TestLeanNicheOrchestratorBase:
         rel_orchestrator = self.TestOrchestrator("test", "relative/path")
         assert rel_orchestrator.output_dir.is_absolute()
 
-        # Test with absolute paths
-        abs_orchestrator = self.TestOrchestrator("test", "/absolute/path")
+        # Test with absolute paths (use a writable absolute path)
+        abs_dir = tempfile.mkdtemp()
+        abs_orchestrator = self.TestOrchestrator("test", abs_dir)
         assert abs_orchestrator.output_dir.is_absolute()
 
     def test_memory_efficiency(self):

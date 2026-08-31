@@ -17,26 +17,33 @@ import random
 class MathematicalDataGenerator:
     """Generate mathematical and statistical datasets"""
 
-    def __init__(self, seed: Optional[int] = None):
+    def __init__(self, seed: Optional[int] = None, output_dir: str = "generated_data"):
         """Initialize the data generator"""
+        self.seed = seed
         if seed is not None:
             np.random.seed(seed)
             random.seed(seed)
 
-        self.output_dir = Path("generated_data")
-        self.output_dir.mkdir(exist_ok=True)
+        self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def generate_polynomial_data(self, coefficients: List[float],
                                domain: Tuple[float, float],
                                noise_std: float = 0.0,
                                num_points: int = 100) -> Dict[str, Any]:
         """Generate data from a polynomial function with optional noise"""
+        if not coefficients:
+            raise ValueError("coefficients must be a non-empty list")
+        if num_points <= 0:
+            raise ValueError("num_points must be a positive integer")
+
         x = np.linspace(domain[0], domain[1], num_points)
 
-        # Evaluate polynomial
+        # Evaluate polynomial (coefficients given from highest to lowest degree)
+        degree = len(coefficients) - 1
         y_clean = np.zeros_like(x)
         for i, coeff in enumerate(coefficients):
-            y_clean += coeff * (x ** i)
+            y_clean += coeff * (x ** (degree - i))
 
         # Add noise if specified
         if noise_std > 0:
@@ -189,12 +196,14 @@ class MathematicalDataGenerator:
             trend = np.exp(0.001 * t) - 1
         elif trend_type == 'logistic':
             trend = 1 / (1 + np.exp(-0.01 * (t - length/2)))
+        elif trend_type == 'constant':
+            trend = np.zeros(length)
         else:
             trend = np.zeros(length)
 
         # Generate seasonal component
         if seasonality:
-            seasonal = np.sin(2 * np.pi * t / 52) + 0.5 * np.sin(2 * np.pi * t / 12)
+            seasonal = np.sin(2 * np.pi * t / 7)
         else:
             seasonal = np.zeros(length)
 
@@ -222,6 +231,10 @@ class MathematicalDataGenerator:
                             edge_probability: float = 0.3,
                             directed: bool = False) -> Dict[str, Any]:
         """Generate network/graph data"""
+        if num_nodes <= 0:
+            raise ValueError("num_nodes must be a positive integer")
+        if not (0 <= edge_probability <= 1):
+            raise ValueError("edge_probability must be in [0, 1]")
         if directed:
             # Generate directed adjacency matrix
             adjacency = np.random.binomial(1, edge_probability, (num_nodes, num_nodes))
@@ -300,7 +313,9 @@ class MathematicalDataGenerator:
         dataset = {
             'name': name,
             'generated_at': datetime.now().isoformat(),
-            'components': {}
+            'timestamp': datetime.now().isoformat(),
+            'components': {},
+            'datasets': {}
         }
 
         # Generate various types of data
@@ -327,6 +342,13 @@ class MathematicalDataGenerator:
         dataset['components']['network'] = self.generate_network_data(
             15, 0.3, False
         )
+
+        # Expose the same data under 'datasets' (alias of 'components')
+        dataset['datasets'] = {
+            k: v for k, v in dataset['components'].items()
+            if k in ('polynomial', 'trigonometric', 'statistical')
+        }
+        dataset['datasets']['statistical'] = dataset['components']['normal_distribution']
 
         return dataset
 
