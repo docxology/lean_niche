@@ -81,10 +81,11 @@ lean_niche/
 │           ├── test_basic.lean
 │           ├── test_advanced.lean
 │           └── test_comprehensive.lean
-├── scripts/                        # Build and utility scripts (5 files)
+├── scripts/                        # Build and utility scripts (6 files)
 │   ├── build.sh                   # Lean compilation testing (21/58 success)
 │   ├── test.sh                    # Individual file testing (21/58 success)
 │   ├── analyze.sh                 # Code analysis and import checking
+│   ├── docs.sh                    # Documentation generation
 │   ├── verify_setup.py           # Setup verification (real compilation)
 │   └── verify_lean_proofs.py     # Proof verification script
 ├── docs/                          # Comprehensive documentation (15+ files)
@@ -630,6 +631,7 @@ Located in `scripts/` directory:
 - `build.sh`: Lean compilation testing (21/58 files compile successfully)
 - `test.sh`: Individual file testing (21/58 files compile successfully)
 - `analyze.sh`: Code analysis and import verification (comprehensive reporting)
+- `docs.sh`: Documentation generation (code metrics, usage examples)
 - `verify_setup.py`: Setup verification (honest reporting with real results)
 - `verify_lean_proofs.py`: Proof verification script (real compilation verification)
 
