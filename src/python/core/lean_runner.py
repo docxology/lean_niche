@@ -27,6 +27,7 @@ class LeanRunner:
         self.timeout = timeout
         self.lean_module = lean_module or "LeanRunner"
         self.lean_logger = LeanLogger("core.lean_runner", self.lean_module)
+        self.logger = self.lean_logger.logger
 
         # Setup logging
         self.setup_logging()
@@ -40,7 +41,7 @@ class LeanRunner:
         log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
         # Ensure logs directory exists relative to project root
-        project_root = Path(__file__).parent.parent.parent
+        project_root = Path(__file__).resolve().parents[3]
         logs_dir = project_root / 'logs'
         logs_dir.mkdir(exist_ok=True)
 
@@ -83,6 +84,16 @@ class LeanRunner:
 
                 # Write the code
                 f.write(code)
+                from .lean_source import iter_lean_namespace_scopes
+                declarations = []
+                for line, namespaces, _ in iter_lean_namespace_scopes(code):
+                    match = re.match(r"^\s*(?:@\[[^\]]*\]\s*)*(?:(?:public|private|protected)\s+)?(theorem|lemma)\s+([A-Za-z][A-Za-z0-9_']*)\b", line)
+                    if match:
+                        kind, name = match.groups()
+                        qualified = ".".join((*namespaces, name))
+                        declarations.append((kind, qualified))
+                        f.write(f"\n#print axioms _root_.{qualified}\n")
+
                 temp_file = Path(f.name)
 
             self.lean_logger.log_step_end("create_temp_file", success=True, result_details={
@@ -112,6 +123,32 @@ class LeanRunner:
             })
 
             parsed_result = self._parse_lean_output(result, code)
+            # Only kernel dependency reports can certify a declaration.
+            traces = {}
+            for match in re.finditer(r"'([^']+)' (?:depends on axioms: \[([^\]]*)\]|does not depend on any axioms)", result.get('stdout', ''), re.S):
+                traces[match.group(1)] = set(filter(None, re.split(r"[,\s]+", match.group(2) or '')))
+            standard = {'propext', 'Classical.choice', 'Quot.sound'}
+            verified = []
+            rejected = []
+            for kind, name in declarations:
+                dependencies = traces.get(name)
+                if dependencies is None or not dependencies <= standard:
+                    rejected.append(name)
+                else:
+                    verified.append({'type': kind, 'name': name, 'axioms': sorted(dependencies), 'method': 'kernel_axiom_report'})
+            status = parsed_result['verification_status']
+            if rejected:
+                status['compilation_successful'] = False
+                parsed_result['error_details'].append({'message': 'Missing or nonstandard kernel evidence', 'declarations': rejected})
+            successful = status['compilation_successful']
+            parsed_result['theorems_proven'] = [d for d in verified if d['type'] == 'theorem'] if successful else []
+            parsed_result['lemmas_proven'] = [d for d in verified if d['type'] == 'lemma'] if successful else []
+            status['total_proofs'] = len(verified) if successful else 0
+            status['verification_complete'] = successful
+            status['success_rate'] = (100 * len(verified) / len(declarations)) if successful and declarations else 0
+            status['kernel_policy_successful'] = successful and not rejected
+            status['kernel_axiom_reports'] = traces
+
 
             self.lean_logger.log_step_end("parse_results", success=True, result_details={
                 "theorems_found": len(parsed_result.get('theorems_proven', [])),
@@ -142,7 +179,9 @@ class LeanRunner:
             })
 
             return {
-                'success': True,
+                'success': verification_status.get('compilation_successful', False),
+                **({"error": result.get("stderr") or result.get("stdout") or "Lean proof verification was rejected"}
+                   if not verification_status.get('compilation_successful', False) else {}),
                 'result': parsed_result,
                 'stdout': result.get('stdout', ''),
                 'stderr': result.get('stderr', ''),
@@ -187,7 +226,7 @@ class LeanRunner:
             # Run Lean from the project root so that module search paths and
             # lake build outputs (.olean) are discoverable. Also extend LEAN_PATH
             # to include local `src/lean` and any `.lake/**/build` directories.
-            project_root = Path(__file__).parent.parent.parent
+            project_root = Path(__file__).resolve().parents[3]
 
             # Build LEAN_PATH environment
             env = os.environ.copy()
@@ -198,7 +237,7 @@ class LeanRunner:
                 lean_path_entries.append(str(src_lean))
 
             # include any lake build directories (where .olean files live)
-            for p in project_root.glob('.lake/**/build'):
+            for p in project_root.glob('.lake/**/build/lib/lean'):
                 if p.exists():
                     lean_path_entries.append(str(p))
 
@@ -206,6 +245,9 @@ class LeanRunner:
             existing_lp = env.get('LEAN_PATH', '')
             combined = ':'.join([*lean_path_entries, existing_lp]) if existing_lp else ':'.join(lean_path_entries)
             env['LEAN_PATH'] = combined
+
+            if not lean_file.is_file():
+                raise FileNotFoundError(lean_file)
 
             result = subprocess.run(
                 [self.lean_path, str(lean_file)],
@@ -391,28 +433,33 @@ class LeanRunner:
                 })
 
         # Parse stderr for detailed error and warning analysis
-        error_lines = stderr.split('\n')
+        error_lines = (stdout + '\n' + stderr).split('\n')
         for line in error_lines:
             line = line.strip()
             if not line:
                 continue
 
-            if 'error:' in line.lower():
+            if re.search(r'\berror(?:\([^)]*\))?:', line, re.IGNORECASE):
                 error_info = self._parse_error_line(line)
                 parsed['error_details'].append(error_info)
-            elif 'warning:' in line.lower():
+            elif re.search(r'\bwarning(?:\([^)]*\))?:', line, re.IGNORECASE):
                 warning_info = self._parse_warning_line(line)
                 parsed['warning_details'].append(warning_info)
             elif any(keyword in line.lower() for keyword in ['compiling', 'building', 'linking']):
                 parsed['compilation_info'].append(line)
 
+        admitted = any('declaration uses `sorry`' in line for line in error_lines)
+        compiled = result.get('returncode') == 0 and not parsed['error_details'] and not admitted
+
         # Parse source code directly if provided and no theorems/definitions found in output
-        if source_code and (not parsed['theorems_proven'] and not parsed['definitions_created']):
+        if compiled and source_code and (not parsed['theorems_proven'] and not parsed['definitions_created']):
             parsed.update(self._parse_source_code(source_code))
 
         # Extract theorems and definitions from source code if not found in output
-        if not parsed['theorems_proven'] and not parsed['definitions_created']:
-            parsed.update(self._extract_from_source_files(result))
+        # Never count declarations from unrelated files in the working directory.
+        if not compiled:
+            for key in ('theorems_proven', 'lemmas_proven', 'definitions_created'):
+                parsed[key] = []
 
         # Add verification status summary
         total_proofs = len(parsed['theorems_proven']) + len(parsed['lemmas_proven'])
@@ -424,8 +471,10 @@ class LeanRunner:
             'total_errors': total_errors,
             'total_warnings': total_warnings,
             'success_rate': (total_proofs / (total_proofs + total_errors)) * 100 if (total_proofs + total_errors) > 0 else 100,
-            'compilation_successful': total_errors == 0,
-            'verification_complete': total_proofs > 0 and total_errors == 0
+            'compilation_successful': compiled,
+            'verification_complete': total_proofs > 0 and compiled,
+            'compiler_returncode': result.get('returncode'),
+            'has_admissions': admitted
         }
 
         # Add performance metrics
@@ -458,80 +507,10 @@ class LeanRunner:
 
         return parsed
 
-    def _extract_from_source_files(self, result: Dict[str, Any]) -> Dict[str, Any]:
-        """Extract theorems and definitions directly from Lean source files when parsing fails"""
-        extracted = {
-            'theorems_proven': [],
-            'lemmas_proven': [],
-            'definitions_created': [],
-            'axioms_defined': []
-        }
-
-        try:
-            # Look for source files in the result or try to find them
-            source_files = []
-
-            # Check if we have source file information in the result
-            if 'source_files' in result:
-                source_files = result['source_files']
-            else:
-                # Try to find Lean files in the current directory or typical locations
-                import glob
-                source_files = glob.glob('*.lean')
-                if not source_files:
-                    source_files = glob.glob('src/**/*.lean')
-
-            for source_file in source_files:
-                try:
-                    with open(source_file, 'r', encoding='utf-8') as f:
-                        content = f.read()
-
-                    # Extract theorems
-                    theorem_matches = re.findall(r'\b(theorem|lemma|axiom)\s+([A-Za-z_][A-Za-z0-9_]*)\s*[:.]', content)
-                    for match_type, name in theorem_matches:
-                        if match_type == 'theorem':
-                            extracted['theorems_proven'].append({
-                                'type': 'theorem',
-                                'name': name,
-                                'source_file': source_file,
-                                'method': 'source_extraction'
-                            })
-                        elif match_type == 'lemma':
-                            extracted['lemmas_proven'].append({
-                                'type': 'lemma',
-                                'name': name,
-                                'source_file': source_file,
-                                'method': 'source_extraction'
-                            })
-                        elif match_type == 'axiom':
-                            extracted['axioms_defined'].append({
-                                'type': 'axiom',
-                                'name': name,
-                                'source_file': source_file,
-                                'method': 'source_extraction'
-                            })
-
-                    # Extract definitions
-                    def_matches = re.findall(r'\b(def|definition|constant|abbrev)\s+([A-Za-z_][A-Za-z0-9_]*)\s*[:.]', content)
-                    for match_type, name in def_matches:
-                        extracted['definitions_created'].append({
-                            'type': match_type,
-                            'name': name,
-                            'source_file': source_file,
-                            'method': 'source_extraction'
-                        })
-
-                except Exception as e:
-                    self.lean_logger.logger.warning(f"Could not extract from {source_file}: {e}")
-                    continue
-
-        except Exception as e:
-            self.lean_logger.logger.warning(f"Source file extraction failed: {e}")
-
-        return extracted
-
     def _parse_source_code(self, source_code: str) -> Dict[str, Any]:
-        """Parse source code string directly to extract theorems and definitions"""
+        """Inventory declarations outside comments and strings; this is not proof evidence."""
+        from .lean_source import lean_code_without_comments
+        source_code = lean_code_without_comments(source_code)
         parsed = {
             'theorems_proven': [],
             'lemmas_proven': [],
@@ -615,152 +594,65 @@ class LeanRunner:
             self.lean_logger.logger.warning(f"Could not create performance file: {e}")
 
     def _parse_error_line(self, line: str) -> Dict[str, Any]:
-        """Parse a single error line for detailed analysis"""
-        error_info = {
-            'line': line,
-            'type': 'unknown',
-            'severity': 'error',
-            'location': None,
-            'message': line
-        }
-
-        # Extract error type
-        if 'syntax error' in line.lower():
-            error_info['type'] = 'syntax'
-        elif 'type error' in line.lower():
-            error_info['type'] = 'type'
-        elif 'proof failed' in line.lower():
-            error_info['type'] = 'proof'
-        elif 'compilation failed' in line.lower():
-            error_info['type'] = 'compilation'
-        elif 'import error' in line.lower():
-            error_info['type'] = 'import'
-
-        # Extract location information
-        location_match = re.search(r'at\s+([^:]+):(\d+):(\d+)', line)
-        if location_match:
-            error_info['location'] = {
-                'file': location_match.group(1),
-                'line': int(location_match.group(2)),
-                'column': int(location_match.group(3))
-            }
-
-        return error_info
+        """Normalize compiler diagnostics while retaining their original text."""
+        lower = line.lower()
+        kind = ('syntax' if 'syntax error' in lower or 'unexpected token' in lower else
+                'type_mismatch' if 'type mismatch' in lower else
+                'type' if 'type error' in lower else 'unknown')
+        return self._parse_diagnostic_location(line, 'error', kind)
 
     def _parse_warning_line(self, line: str) -> Dict[str, Any]:
-        """Parse a single warning line for detailed analysis"""
-        warning_info = {
-            'line': line,
-            'type': 'unknown',
-            'severity': 'warning',
-            'location': None,
-            'message': line
-        }
+        lower = line.lower()
+        kind = ('unused_variable' if 'unused variable' in lower else
+                'deprecated' if 'deprecated' in lower else 'unknown')
+        diagnostic = self._parse_diagnostic_location(line, 'warning', kind)
+        variable = re.search(r"unused variable ['`]([^'`]+)['`]", line)
+        if variable:
+            diagnostic['variable'] = variable.group(1)
+        return diagnostic
 
-        # Extract warning type
-        if 'unused variable' in line.lower():
-            warning_info['type'] = 'unused_variable'
-        elif 'missing documentation' in line.lower():
-            warning_info['type'] = 'missing_docs'
-        elif 'performance' in line.lower():
-            warning_info['type'] = 'performance'
-        elif 'style' in line.lower():
-            warning_info['type'] = 'style'
-
-        # Extract location information
-        location_match = re.search(r'at\s+([^:]+):(\d+):(\d+)', line)
-        if location_match:
-            warning_info['location'] = {
-                'file': location_match.group(1),
-                'line': int(location_match.group(2)),
-                'column': int(location_match.group(3))
-            }
-
-        return warning_info
+    @staticmethod
+    def _parse_diagnostic_location(raw: str, severity: str, kind: str) -> Dict[str, Any]:
+        match = re.search(r'([^\s:]+\.lean):(\d+):(\d+)', raw)
+        location = ({'file': match.group(1), 'line': int(match.group(2)),
+                     'column': int(match.group(3))} if match else None)
+        return {'raw_line': raw, 'message': raw, 'type': kind, 'severity': severity,
+                'location': location, 'file': location['file'] if location else None,
+                'line': location['line'] if location else None,
+                'column': location['column'] if location else None}
 
     def run_theorem_verification(self, theorem_code: str, imports: List[str] = None) -> Dict[str, Any]:
-        """Run theorem verification and return detailed results"""
-        if imports is None:
-            imports = ["LeanNiche.Basic"]
-
-        verification_code = f"""
-{chr(10).join(f"import {imp}" for imp in imports)}
-
--- Theorem to verify
-{theorem_code}
-
--- Verification test
-#check ({theorem_code.split(':')[0].replace('theorem ', '').strip()})
-"""
-
-        result = self.run_lean_code(verification_code, imports)
-
-        if result['success']:
-            # Extract theorem name and verify it was proven
-            theorem_match = re.search(r'theorem\s+(\w+)\s*:', theorem_code)
-            if theorem_match:
-                theorem_name = theorem_match.group(1)
-                if theorem_name in result['result'].get('theorems_proven', []):
-                    result['verification_status'] = 'VERIFIED'
-                else:
-                    result['verification_status'] = 'NOT_VERIFIED'
-            else:
-                result['verification_status'] = 'PARSE_ERROR'
-        else:
-            result['verification_status'] = 'FAILED'
-
+        """Verify the submitted source and retain its kernel dependency evidence."""
+        result = self.run_lean_code(theorem_code, imports)
+        proofs = result.get('result', {})
+        verified = proofs.get('theorems_proven', []) + proofs.get('lemmas_proven', [])
+        result['verification_status'] = 'VERIFIED' if result['success'] and verified else 'FAILED'
         return result
 
     def run_algorithm_verification(self, algorithm_code: str, test_cases: List[Dict[str, Any]],
-                                 imports: List[str] = None) -> Dict[str, Any]:
-        """Run algorithm verification with test cases"""
-        if imports is None:
-            imports = ["LeanNiche.Computational"]
-
-        verification_results = {
-            'algorithm_verified': False,
-            'test_results': [],
-            'performance_metrics': {}
-        }
-
-        # Run the algorithm code first
-        algorithm_result = self.run_lean_code(algorithm_code, imports)
-
-        if algorithm_result['success']:
-            verification_results['algorithm_verified'] = True
-
-            # Run test cases
-            for i, test_case in enumerate(test_cases):
-                test_code = f"""
-import LeanNiche.Computational
-
--- Test case {i+1}
-#eval {test_case.get('expression', 'sorry')}
-"""
-
-                test_result = self.run_lean_code(test_code, imports)
-                verification_results['test_results'].append({
-                    'test_case': i + 1,
-                    'expression': test_case.get('expression', ''),
-                    'expected': test_case.get('expected', ''),
-                    'success': test_result['success'],
-                    'output': test_result.get('stdout', ''),
-                    'error': test_result.get('stderr', '')
-                })
-
-            # Calculate performance metrics
-            total_tests = len(test_cases)
-            passed_tests = sum(1 for r in verification_results['test_results'] if r['success'])
-
-            verification_results['performance_metrics'] = {
-                'total_tests': total_tests,
-                'passed_tests': passed_tests,
-                'failed_tests': total_tests - passed_tests,
-                'success_rate': passed_tests / total_tests * 100 if total_tests > 0 else 0,
-                'execution_time': algorithm_result.get('execution_time', 0)
-            }
-
-        return verification_results
+                                   imports: List[str] = None) -> Dict[str, Any]:
+        """Compile an algorithm and execute each expected-value assertion with it."""
+        compiled = self.run_lean_code(algorithm_code, imports)
+        tests = []
+        if compiled['success']:
+            for index, case in enumerate(test_cases, 1):
+                if 'expression' not in case or 'expected' not in case:
+                    tests.append({'test_case': index, 'success': False, 'error': 'expression and expected are required'})
+                    continue
+                expected = str(case['expected']).lower() if isinstance(case['expected'], bool) else str(case['expected'])
+                assertion = (f"\n#eval ((do\n  if ({case['expression']}) == ({expected}) then pure ()\n"
+                             '  else throw (IO.userError "Algorithm expected-value assertion failed")) : IO Unit)\n')
+                checked = self.run_lean_code(algorithm_code + assertion, imports)
+                tests.append({'test_case': index, 'expression': case['expression'], 'expected': case['expected'],
+                              'success': checked['success'], 'output': checked.get('stdout', ''),
+                              'error': checked.get('error', '')})
+        passed = sum(test['success'] for test in tests)
+        success = compiled['success'] and passed == len(test_cases)
+        return {'success': success, 'algorithm_verified': success, 'test_results': tests,
+                'performance_metrics': {'total_tests': len(test_cases), 'passed_tests': passed,
+                                        'failed_tests': len(test_cases) - passed,
+                                        'success_rate': 100 * passed / len(test_cases) if test_cases else 0,
+                                        'execution_time': compiled.get('execution_time', 0)}}
 
     def extract_mathematical_results(self, lean_output: str) -> Dict[str, Any]:
         """Extract mathematical results from Lean output"""
@@ -927,64 +819,61 @@ Failed: {metrics.get('failed_tests', 0)}
             proof_data['mathematical_properties'] = []
             self.logger.warning(f"Compilation failed for {prefix} - reporting zero verified proofs")
 
-            # Save theorems and lemmas (ensure key always present even if empty)
-            theorems_file = proof_dir / f"{prefix}_theorems_{timestamp}.json"
-            with open(theorems_file, 'w') as f:
+        # Save theorems and lemmas (ensure key always present even if empty)
+        theorems_file = proof_dir / f"{prefix}_theorems_{timestamp}.json"
+        with open(theorems_file, 'w') as f:
+            json.dump({
+                'theorems_proven': proof_data.get('theorems_proven', []),
+                'lemmas_proven': proof_data.get('lemmas_proven', []),
+                'axioms_defined': proof_data.get('axioms_defined', [])
+            }, f, indent=2, default=str)
+        saved_files['theorems'] = theorems_file
+
+        # Save definitions and structures
+        definitions_file = proof_dir / f"{prefix}_definitions_{timestamp}.json"
+        with open(definitions_file, 'w') as f:
+            json.dump({
+                'definitions_created': proof_data.get('definitions_created', []),
+                'structures_defined': proof_data.get('structures_defined', []),
+                'inductive_types': proof_data.get('inductive_types', [])
+            }, f, indent=2, default=str)
+        saved_files['definitions'] = definitions_file
+
+        # Save mathematical properties
+        if proof_data.get('mathematical_properties'):
+            properties_file = proof_dir / f"{prefix}_properties_{timestamp}.json"
+            with open(properties_file, 'w') as f:
                 json.dump({
-                    'theorems_proven': proof_data.get('theorems_proven', []),
-                    'lemmas_proven': proof_data.get('lemmas_proven', []),
-                    'axioms_defined': proof_data.get('axioms_defined', [])
+                    'mathematical_properties': proof_data.get('mathematical_properties', []),
+                    'tactics_used': proof_data.get('tactics_used', []),
+                    'proof_methods': proof_data.get('proof_methods', [])
                 }, f, indent=2, default=str)
-            saved_files['theorems'] = theorems_file
+            saved_files['properties'] = properties_file
 
-            # Save definitions and structures
-            if (proof_data.get('definitions_created') or
-                proof_data.get('structures_defined') or
-                proof_data.get('inductive_types')):
-                definitions_file = proof_dir / f"{prefix}_definitions_{timestamp}.json"
-                with open(definitions_file, 'w') as f:
-                    json.dump({
-                        'definitions_created': proof_data.get('definitions_created', []),
-                        'structures_defined': proof_data.get('structures_defined', []),
-                        'inductive_types': proof_data.get('inductive_types', [])
-                    }, f, indent=2, default=str)
-                saved_files['definitions'] = definitions_file
-
-            # Save mathematical properties
-            if proof_data.get('mathematical_properties'):
-                properties_file = proof_dir / f"{prefix}_properties_{timestamp}.json"
-                with open(properties_file, 'w') as f:
-                    json.dump({
-                        'mathematical_properties': proof_data.get('mathematical_properties', []),
-                        'tactics_used': proof_data.get('tactics_used', []),
-                        'proof_methods': proof_data.get('proof_methods', [])
-                    }, f, indent=2, default=str)
-                saved_files['properties'] = properties_file
-
-            # Save error and warning details (only when compilation failed)
-            if proof_data.get('error_details') or proof_data.get('warning_details'):
-                issues_file = verification_dir / f"{prefix}_issues_{timestamp}.json"
-                with open(issues_file, 'w') as f:
-                    json.dump({
-                        'error_details': proof_data.get('error_details', []),
-                        'warning_details': proof_data.get('warning_details', []),
-                        'compilation_info': proof_data.get('compilation_info', [])
-                    }, f, indent=2, default=str)
-                saved_files['issues'] = issues_file
-
-            # Save complete comprehensive summary
-            summary_file = output_dir / f"{prefix}_complete_summary_{timestamp}.json"
-            with open(summary_file, 'w') as f:
+        # Save error and warning details (only when compilation failed)
+        if proof_data.get('error_details') or proof_data.get('warning_details'):
+            issues_file = verification_dir / f"{prefix}_issues_{timestamp}.json"
+            with open(issues_file, 'w') as f:
                 json.dump({
-                    'execution_info': {
-                        'timestamp': timestamp,
-                        'prefix': prefix,
-                        'success': results.get('success', False)
-                    },
-                    'complete_results': results,
-                    'saved_files': {k: str(v) for k, v in saved_files.items()}
+                    'error_details': proof_data.get('error_details', []),
+                    'warning_details': proof_data.get('warning_details', []),
+                    'compilation_info': proof_data.get('compilation_info', [])
                 }, f, indent=2, default=str)
-            saved_files['complete_summary'] = summary_file
+            saved_files['issues'] = issues_file
+
+        # Save complete comprehensive summary
+        summary_file = output_dir / f"{prefix}_complete_summary_{timestamp}.json"
+        with open(summary_file, 'w') as f:
+            json.dump({
+                'execution_info': {
+                    'timestamp': timestamp,
+                    'prefix': prefix,
+                    'success': results.get('success', False)
+                },
+                'complete_results': results,
+                'saved_files': {k: str(v) for k, v in saved_files.items()}
+            }, f, indent=2, default=str)
+        saved_files['complete_summary'] = summary_file
 
         return saved_files
 
@@ -1009,14 +898,6 @@ Failed: {metrics.get('failed_tests', 0)}
         return output_path
 
     # Backwards-compatibility wrapper name used by older examples
-    def generate_proof_output(self, results: Dict[str, Any], output_dir: Path, prefix: str = "proof_outcomes") -> Dict[str, Path]:
-        # Alias to save_comprehensive_proof_outcomes if present
-        try:
-            return self.save_comprehensive_proof_outcomes(results, output_dir, prefix)
-        except Exception as e:
-            self.logger.error(f"generate_proof_output alias failed: {e}")
-            return {}
-
     def generate_proof_output(self, results: Dict[str, Any], output_dir: Path, prefix: str = "proof_outcomes") -> Dict[str, Path]:
         """Generate and save proof outputs and summaries.
 
@@ -1058,198 +939,26 @@ Failed: {metrics.get('failed_tests', 0)}
         return saved
 
     def _consolidate_lean_artifacts(self, saved_files: Dict[str, Path], output_dir: Path, prefix: str):
-        """Scan for .lean files in the proofs directory and append any found theorem/def names
-        into the existing JSON artifact files (theorems/definitions/complete_summary).
+        """Record artifact sources without promoting them to verified proofs.
 
-        This makes sure tiny artifact files produced by examples are visible to CI/tests.
+        Source files discovered in an output directory are unverified evidence.
+        Reporting must never modify project sources or run dependency updates.
         """
-        # Search recursively under the provided output_dir for any .lean files
+        import hashlib
+
         if not output_dir.exists():
             return
-
-        # Collect names found in .lean files
-        found_theorems = set()
-        found_defs = set()
-        for lp in output_dir.rglob('*.lean'):
-            try:
-                txt = lp.read_text(encoding='utf-8')
-            except Exception:
-                continue
-            # simple regex to find theorem/def names
-            for m in re.findall(r"\btheorem\s+([A-Za-z0-9_]+)", txt):
-                found_theorems.add(m)
-            for m in re.findall(r"\bdef\s+([A-Za-z0-9_]+)", txt):
-                found_defs.add(m)
-        # Log what was found in the proofs output directory
-        try:
-            self.logger.info(f"Consolidation: found_theorems={sorted(found_theorems)}, found_defs={sorted(found_defs)} in {output_dir}")
-        except Exception:
-            pass
-
-        # Copy any discovered .lean artifacts into the project's Lean source
-        # tree so `lake build` will compile them and produce .olean artifacts
-        # discoverable by Lean during subsequent runs.
-        try:
-            project_root = Path(__file__).parent.parent.parent
-            dest_root = project_root / 'src' / 'lean' / 'LeanNiche' / 'generated_artifacts'
-            dest_root.mkdir(parents=True, exist_ok=True)
-            copied_any = False
-            for lp in output_dir.rglob('*.lean'):
-                try:
-                    dest = dest_root / lp.name
-                    # overwrite to ensure latest artifact
-                    original = lp.read_text(encoding='utf-8')
-                    mod_name = lp.stem
-                    # If the file already declares the target namespace, keep as-is
-                    if f"namespace LeanNiche.generated_artifacts.{mod_name}" in original or 'namespace LeanNiche' in original:
-                        wrapped = original
-                    else:
-                        wrapped = f"namespace LeanNiche.generated_artifacts.{mod_name}\n" + original + f"\nend LeanNiche.generated_artifacts.{mod_name}\n"
-                    dest.write_text(wrapped, encoding='utf-8')
-                    copied_any = True
-                except Exception:
-                    continue
-
-            # If we copied any artifacts, attempt a lake build so .olean files are created
-            if copied_any:
-                try:
-                    # create an imports file that references each generated artifact
-                    try:
-                        imports_file = project_root / 'src' / 'lean' / 'LeanNiche' / 'generated_artifacts_imports.lean'
-                        lines = []
-                        for f in sorted(dest_root.glob('*.lean')):
-                            mod_name = f.stem
-                            # module path: LeanNiche.generated_artifacts.<mod_name>
-                            lines.append(f"import LeanNiche.generated_artifacts.{mod_name}\n")
-                        imports_file.write_text('\n'.join(lines), encoding='utf-8')
-                    except Exception:
-                        pass
-
-                    # run lake update/build from project root to produce .olean for generated artifacts
-                    subprocess.run(['lake', 'update'], cwd=str(project_root), check=False)
-                    subprocess.run(['lake', 'build'], cwd=str(project_root), check=False)
-                    # Log that we attempted a build for generated artifacts
-                    try:
-                        self.logger.info(f"Consolidation: ran lake build after copying artifacts to {dest_root}")
-                    except Exception:
-                        pass
-                except Exception:
-                    # don't fail artifact consolidation on build errors
-                    pass
-        except Exception:
-            pass
-
-        # Merge into theorems JSON
-        try:
-            theorems_path = saved_files.get('theorems')
-            if theorems_path and theorems_path.exists():
-                with open(theorems_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                entries = data.get('theorems_proven', [])
-                existing_names = {e.get('name') for e in entries if e.get('name')}
-                for name in sorted(found_theorems):
-                    if name not in existing_names:
-                        entries.append({'type': 'theorem', 'name': name, 'line': '', 'context': None})
-                data['theorems_proven'] = entries
-                with open(theorems_path, 'w', encoding='utf-8') as f:
-                    json.dump(data, f, indent=2, default=str)
-
-            # Merge into definitions JSON
-            definitions_path = saved_files.get('definitions')
-            if definitions_path and definitions_path.exists():
-                with open(definitions_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                entries = data.get('definitions_created', [])
-                existing_names = {e.get('name') for e in entries if e.get('name')}
-                for name in sorted(found_defs):
-                    if name not in existing_names:
-                        entries.append({'type': 'def', 'name': name, 'line': '', 'context': None})
-                data['definitions_created'] = entries
-                with open(definitions_path, 'w', encoding='utf-8') as f:
-                    json.dump(data, f, indent=2, default=str)
-
-            # Update complete_summary to reference saved files (no further content merge required)
-            summary_path = saved_files.get('complete_summary')
-            if summary_path and summary_path.exists():
-                with open(summary_path, 'r', encoding='utf-8') as f:
-                    summary = json.load(f)
-                # Additionally, create a merged text of all JSON artifacts so tests
-                # scanning the proofs directory will find trivial theorem/def names
-                merged_texts = []
-                for jf in output_dir.rglob('*.json'):
-                    try:
-                        merged_texts.append(jf.read_text(encoding='utf-8'))
-                    except Exception:
-                        continue
-                summary['merged_json_contents'] = '\n'.join(merged_texts)
-                with open(summary_path, 'w', encoding='utf-8') as f:
-                    json.dump(summary, f, indent=2, default=str)
-                # Additionally, copy any JSON files from nested `proofs` subdirectories
-                # up into the top-level proofs directory so tests reading `proofs_dir`
-                # will observe them without needing to recurse into deeper folders.
-                top_proofs = output_dir / 'proofs'
-                for nested_json in output_dir.rglob('proofs/**/*.json'):
-                    try:
-                        dest = top_proofs / nested_json.name
-                        # avoid overwriting if exists
-                        if not dest.exists():
-                            dest.write_text(nested_json.read_text(encoding='utf-8'), encoding='utf-8')
-                    except Exception:
-                        continue
-                # Also incorporate any .lean artifact files that were copied into
-                # the project's generated_artifacts directory: extract declarations
-                # from them and merge into the saved JSON artifacts so tests see them.
-                try:
-                    generated_dir = project_root / 'src' / 'lean' / 'LeanNiche' / 'generated_artifacts'
-                    if generated_dir.exists():
-                        extra_theorems = set()
-                        extra_defs = set()
-                        for g in generated_dir.glob('*.lean'):
-                            try:
-                                txt = g.read_text(encoding='utf-8')
-                            except Exception:
-                                continue
-                            for m in re.findall(r"\btheorem\s+([A-Za-z0-9_]+)", txt):
-                                extra_theorems.add(m)
-                            for m in re.findall(r"\bdef\s+([A-Za-z0-9_]+)", txt):
-                                extra_defs.add(m)
-                        try:
-                            self.logger.info(f"Consolidation: extra_theorems={sorted(extra_theorems)}, extra_defs={sorted(extra_defs)} from {generated_dir}")
-                        except Exception:
-                            pass
-
-                        # Merge into theorems JSON
-                        theorems_path = saved_files.get('theorems')
-                        if theorems_path and theorems_path.exists():
-                            with open(theorems_path, 'r', encoding='utf-8') as f:
-                                data = json.load(f)
-                            entries = data.get('theorems_proven', [])
-                            existing_names = {e.get('name') for e in entries if e.get('name')}
-                            for name in sorted(extra_theorems):
-                                if name not in existing_names:
-                                    entries.append({'type': 'theorem', 'name': name, 'line': '', 'context': None})
-                            data['theorems_proven'] = entries
-                            with open(theorems_path, 'w', encoding='utf-8') as f:
-                                json.dump(data, f, indent=2, default=str)
-
-                        # Merge into definitions JSON
-                        definitions_path = saved_files.get('definitions')
-                        if definitions_path and definitions_path.exists():
-                            with open(definitions_path, 'r', encoding='utf-8') as f:
-                                data = json.load(f)
-                            entries = data.get('definitions_created', [])
-                            existing_names = {e.get('name') for e in entries if e.get('name')}
-                            for name in sorted(extra_defs):
-                                if name not in existing_names:
-                                    entries.append({'type': 'def', 'name': name, 'line': '', 'context': None})
-                            data['definitions_created'] = entries
-                            with open(definitions_path, 'w', encoding='utf-8') as f:
-                                json.dump(data, f, indent=2, default=str)
-                except Exception:
-                    pass
-        except Exception as e:
-            # don't raise during consolidation
-            self.logger.debug(f"Error consolidating lean artifacts: {e}")
+        artifacts = []
+        for path in sorted(output_dir.rglob("*.lean")):
+            contents = path.read_bytes()
+            artifacts.append({
+                "path": str(path.relative_to(output_dir)),
+                "sha256": hashlib.sha256(contents).hexdigest(),
+                "verification_status": "unverified_source",
+            })
+        inventory = output_dir / f"{prefix}_source_inventory.json"
+        inventory.write_text(json.dumps({"artifacts": artifacts}, indent=2) + "\n", encoding="utf-8")
+        saved_files["source_inventory"] = inventory
 
     def suggest_atp_integration(self) -> str:
         """Return a short plan and resources for ATP/SMT integration with Lean.

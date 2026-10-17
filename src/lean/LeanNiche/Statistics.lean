@@ -46,21 +46,12 @@ structure HypothesisTest where
 theorem sample_mean_empty : sample_mean ⟨0, []⟩ = 0.0 := by
   simp [sample_mean]
 
-theorem sample_mean_singleton (x : Float) : 
-  sample_mean ⟨1, [x]⟩ = x := by
-  sorry
-
 theorem sample_variance_empty : sample_variance ⟨0, []⟩ = 0.0 := by
   simp [sample_variance]
 
 theorem sample_variance_singleton (x : Float) : 
   sample_variance ⟨1, [x]⟩ = 0.0 := by
   simp [sample_variance]
-
-theorem confidence_interval_order (ci : ConfidenceInterval) 
-  (h : ci.confidence_level > 0.0) : 
-  ci.lower ≤ ci.upper ∨ ci.lower > ci.upper := by
-  sorry
 
 -- Sample properties
 theorem sample_size_nonneg (s : Sample) : s.size ≥ 0 := by

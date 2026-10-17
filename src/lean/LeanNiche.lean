@@ -1,3 +1,5 @@
+import LeanNiche.ExactLinearAlgebra
+import LeanNiche.ExactStatistics
 -- Import working LeanNiche modules only
 import LeanNiche.Basic
 import LeanNiche.LinearAlgebra

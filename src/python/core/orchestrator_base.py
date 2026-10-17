@@ -177,6 +177,14 @@ class LeanNicheOrchestratorBase(ABC):
 
             try:
                 verification_result = self.lean_runner.run_lean_code(lean_code, domain_modules)
+                # Preserve the actual failed compiler receipt as well as successful results.
+                if not verification_result.get('success', False):
+                    self.lean_runner.save_comprehensive_proof_outcomes(
+                        verification_result, self.proofs_dir,
+                        f"{self.domain_name.lower().replace(' ', '_')}"
+                    )
+                    self.proof_outcomes = verification_result.get('result', {})
+
 
                 if verification_result.get('success', False):
                     print("✅ Lean code executed successfully")

@@ -82,37 +82,11 @@ class TestTheoremVerification:
         # Should have imports parameter
         assert 'imports' in actual_params
 
-    @patch('subprocess.run')
-    def test_theorem_verification_execution(self, mock_subprocess):
-        """Test that theorem verification actually executes Lean"""
-        # Mock successful Lean execution
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = "Theorem verification successful"
-        mock_result.stderr = ""
-        mock_subprocess.return_value = mock_result
-
-        runner = LeanRunner(lean_module="TestModule")
-
-        theorem_code = """
-        import LeanNiche.Basic
-
-        theorem test_theorem : ∀ n : Nat, n + 0 = n := by
-          intro n
-          induction n with
-          | zero => rfl
-          | succ n' ih => rw [Nat.succ_add, ih]
-        """
-
-        result = runner.run_theorem_verification(theorem_code, ["LeanNiche.Basic"])
-
-        # Verify that subprocess.run was called with Lean
-        mock_subprocess.assert_called_once()
-        call_args = mock_subprocess.call_args[0][0]
-        assert "lean" in call_args[0]  # First argument should contain lean command
-
-        # Verify result structure
-        assert result['success'] == True
+    def test_theorem_verification_execution(self):
+        result = LeanRunner().run_theorem_verification('theorem exactProof : True := True.intro')
+        assert result['success'], result
+        assert result['verification_status'] == 'VERIFIED'
+        assert result['result']['theorems_proven'][0]['method'] == 'kernel_axiom_report'
 
 
 class TestAlgorithmVerification:
@@ -139,36 +113,12 @@ class TestAlgorithmVerification:
         assert 'test_cases' in actual_params
         assert 'imports' in actual_params
 
-    @patch('subprocess.run')
-    def test_algorithm_verification_with_test_cases(self, mock_subprocess):
-        """Test algorithm verification with multiple test cases"""
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = "Algorithm verification successful"
-        mock_result.stderr = ""
-        mock_subprocess.return_value = mock_result
-
-        runner = LeanRunner(lean_module="TestModule")
-
-        algorithm_code = """
-        import LeanNiche.Basic
-
-        def test_algorithm (n : Nat) : Nat :=
-          match n with
-          | 0 => 0
-          | n + 1 => n + 1 + test_algorithm n
-        """
-
-        test_cases = [
-            {"input": 0, "expected": 0},
-            {"input": 1, "expected": 1},
-            {"input": 5, "expected": 15}
-        ]
-
-        result = runner.run_algorithm_verification(algorithm_code, test_cases)
-
-        mock_subprocess.assert_called_once()
-        assert result['success'] == True
+    def test_algorithm_verification_with_test_cases(self):
+        result = LeanRunner().run_algorithm_verification('def double (n : Nat) := n + n',
+            [{'expression': 'double 3', 'expected': 6}, {'expression': 'double 4', 'expected': 9}])
+        assert not result['success']
+        assert result['performance_metrics']['passed_tests'] == 1
+        assert result['performance_metrics']['failed_tests'] == 1
 
 
 class TestMathematicalResultsExtraction:
@@ -190,26 +140,12 @@ class TestMathematicalResultsExtraction:
 
         assert 'lean_output' in sig.parameters
 
-    @patch('subprocess.run')
-    def test_extract_mathematical_results_integration(self, mock_subprocess):
-        """Test mathematical results extraction with real Lean output"""
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = """
-        theorem add_zero : ∀ n : Nat, n + 0 = n := by trivial
-        def factorial : Nat → Nat := λ n => match n with | 0 => 1 | n+1 => (n+1) * factorial n
-        """
-        mock_result.stderr = ""
-        mock_subprocess.return_value = mock_result
-
-        runner = LeanRunner(lean_module="TestModule")
-
-        lean_code = "import LeanNiche.Basic\ntheorem test : true := by trivial"
-        result = runner.run_lean_code(lean_code)
-
-        # Verify that mathematical results extraction is called
-        assert 'result' in result
-        assert result['success'] == True
+    def test_extract_mathematical_results_integration(self):
+        runner = LeanRunner()
+        result = runner.run_lean_code('theorem exactProof : True := True.intro\ndef constant : Nat := 1')
+        assert result['success'], result
+        assert result['result']['theorems_proven'][0]['name'] == 'exactProof'
+        assert result['result']['definitions_created'][0]['name'] == 'constant'
 
 
 class TestProofOutcomes:
@@ -355,20 +291,11 @@ class TestLeanRealnessValidation:
         assert 'except' in source
 
     def test_lean_error_handling_comprehensive(self):
-        """Test that Lean error handling is comprehensive"""
-        runner = LeanRunner(lean_module="TestModule")
-
-        # Check that error handling methods exist
-        assert hasattr(runner, '_parse_error_line')
-        assert hasattr(runner, '_parse_warning_line')
-
-        # Test error line parsing with real error format
-        error_line = "error: unknown identifier 'invalid_symbol'"
-        parsed = runner._parse_error_line(error_line)
-
-        assert isinstance(parsed, dict)
-        assert 'error_type' in parsed
-        assert 'message' in parsed
+        runner = LeanRunner()
+        result = runner.run_lean_code('def invalid : Nat := absentSymbol')
+        assert not result['success']
+        assert result['result']['error_details']
+        assert result['result']['theorems_proven'] == []
 
     def test_lean_mathematical_result_extraction(self):
         """Test that mathematical result extraction is real"""

@@ -189,11 +189,11 @@ class MathematicalVisualizer:
         control_efforts = []
 
         for result in pid_results:
-            controller_names.append(result['name'])
+            controller_names.append(result['parameters']['name'])
             settling_times.append(result.get('settling_time', 0))
             steady_state_errors.append(result.get('steady_state_error', 0))
             overshoots.append(result.get('overshoot', 0))
-            control_efforts.append(result.get('control_effort', 0))
+            control_efforts.append(float(np.sum(np.square(result['control_signal']))))
 
         # Performance metrics comparison
         axes[0, 0].bar(controller_names, settling_times, alpha=0.7, color='blue')
@@ -441,6 +441,20 @@ class MathematicalVisualizer:
         fig, axes = plt.subplots(2, 2, figsize=(15, 12))
         fig.suptitle('Statistical Distribution Analysis', fontsize=16)
 
+        # Paired/grouped samples are separate labelled numeric series.
+        samples = {}
+        for name, dataset in datasets.items():
+            data = dataset.get('data')
+            groups = data.items() if isinstance(data, dict) else [(None, data)]
+            for group, values in groups:
+                if values is None:
+                    continue
+                array = np.asarray(values, dtype=float)
+                if array.ndim != 1:
+                    raise ValueError(f'Expected a one-dimensional sample for {name}')
+                label = f'{name}: {group}' if group is not None else name
+                samples[label] = {'data': array}
+        datasets = samples
         dataset_names = list(datasets.keys())
         for i, name in enumerate(dataset_names[:4]):  # Limit to 4 datasets
             row, col = i // 2, i % 2
@@ -462,7 +476,8 @@ class MathematicalVisualizer:
             fig, ax = plt.subplots(figsize=(12, 8))
             data_to_plot = [datasets[name]['data'] for name in dataset_names[:5]]  # Limit to 5
 
-            ax.boxplot(data_to_plot, labels=dataset_names[:5])
+            ax.boxplot(data_to_plot)
+            ax.set_xticks(range(1, len(data_to_plot) + 1), dataset_names[:5])
             ax.set_title('Box Plot Comparison')
             ax.set_ylabel('Value')
             ax.grid(True, alpha=0.3)
@@ -622,7 +637,10 @@ class MathematicalVisualizer:
             # Control effort
             if 'control_effort' in simulation_data.get('derived_metrics', {}):
                 control_effort = simulation_data['derived_metrics']['control_effort']
-                axes[1, 1].plot(time, control_effort, 'purple', linewidth=2)
+                # Controls apply over intervals ending at time[1:].
+                if len(control_effort) != len(time) - 1:
+                    raise ValueError('Expected one control effort per simulation interval')
+                axes[1, 1].plot(time[1:], control_effort, color='purple', linewidth=2)
                 axes[1, 1].set_xlabel('Time (s)')
                 axes[1, 1].set_ylabel('Control Effort')
                 axes[1, 1].set_title('Control Effort Over Time')

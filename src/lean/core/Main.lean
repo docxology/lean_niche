@@ -53,7 +53,7 @@ def main : IO Unit := do
   IO.println "🔍 Testing Core Modules:"
 
   -- Basic functionality tests
-  let test_value := 42
+  let _test_value := 42
   IO.println "  ✅ Basic Module        - Core functionality verified"
   IO.println "  ✅ Advanced Module     - Advanced proofs implemented"
   IO.println "  ✅ Computational       - Algorithms implemented"

@@ -50,7 +50,8 @@ class ComprehensiveMathematicalAnalyzer:
 
     def setup_logging(self, log_level: str, enable_logging: bool):
         """Setup comprehensive logging"""
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.Logger(__name__)
+        self.logger.propagate = False
 
         if not enable_logging:
             self.logger.setLevel(logging.CRITICAL + 1)

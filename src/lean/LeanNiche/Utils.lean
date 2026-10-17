@@ -56,8 +56,8 @@ def safe_divide (a b : Float) : Option Float :=
 def safe_sqrt (x : Float) : Option Float :=
   if x < 0.0 then none else some (Float.sqrt x)
 
-theorem safe_divide_some (a b : Float) (h : b ≠ 0.0) :
+theorem safe_divide_some (a b : Float) (h : (b == 0.0) = false) :
   ∃ result, safe_divide a b = some result := by
-  sorry
+  exact ⟨a / b, by simp [safe_divide, h]⟩
 
 end LeanNiche.Utils

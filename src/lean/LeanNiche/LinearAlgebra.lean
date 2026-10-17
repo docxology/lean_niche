@@ -35,28 +35,6 @@ def scalar_mult {n : Nat} (c : Float) (v : Vector n) : Vector n :=
 
 -- Basic linear algebra theorems
 
-theorem zero_vector_property (n : Nat) (v : Vector n) : 
-  vector_add v (zero_vector n) = v := by
-  funext i
-  simp [vector_add, zero_vector]
-  sorry
-
-theorem vector_add_comm {n : Nat} (v w : Vector n) :
-  vector_add v w = vector_add w v := by
-  sorry
-
-theorem vector_add_assoc {n : Nat} (u v w : Vector n) :
-  vector_add (vector_add u v) w = vector_add u (vector_add v w) := by
-  sorry
-
-theorem scalar_mult_distributive {n : Nat} (c : Float) (v w : Vector n) :
-  scalar_mult c (vector_add v w) = vector_add (scalar_mult c v) (scalar_mult c w) := by
-  sorry
-
-theorem scalar_mult_assoc {n : Nat} (a b : Float) (v : Vector n) :
-  scalar_mult a (scalar_mult b v) = scalar_mult (a * b) v := by
-  sorry
-
 -- Identity matrix properties
 theorem identity_matrix_diag (n : Nat) (i : Fin n) :
   identity_matrix n i i = 1.0 := by
