@@ -224,6 +224,15 @@ jobs:
         # Check if basic test succeeded
         if [ -f "realness_test.json" ]; then
           python3 -c "
+        import builtins, os, re
+        def _emit(value):
+            line = str(value)
+            if re.fullmatch(r'[A-Z][A-Z0-9_]*=[^\r\n]*', line):
+                with open(os.environ['GITHUB_ENV'], 'a') as env_file:
+                    env_file.write(line + '\n')
+            else:
+                builtins.print(line)
+
         import json
         with open('realness_test.json') as f:
             data = json.load(f)
@@ -232,15 +241,15 @@ jobs:
         passed = summary['passed']
         total = summary['total_tests']
 
-        print(f'Minimal verification: {passed}/{total} tests passed')
+        _emit(f'Minimal verification: {passed}/{total} tests passed')
 
         if passed >= 2:  # At least basic tests should pass
-            print('✅ Minimal Lean verification successful')
-            print('LEAN_REALNESS_BASIC=true')
+            _emit('✅ Minimal Lean verification successful')
+            _emit('LEAN_REALNESS_BASIC=true')
         else:
-            print('❌ Minimal Lean verification failed')
-            print('LEAN_REALNESS_BASIC=false')
-        " >> $GITHUB_ENV
+            _emit('❌ Minimal Lean verification failed')
+            _emit('LEAN_REALNESS_BASIC=false')
+        "
         else
           echo "❌ Verification test results not found"
           echo "LEAN_REALNESS_BASIC=false" >> $GITHUB_ENV

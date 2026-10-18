@@ -67,6 +67,15 @@ jobs:
         echo "🔍 Checking Lean verification results..."
         if [ -f "quick_verification.json" ]; then
           python3 -c "
+        import builtins, os, re
+        def _emit(value):
+            line = str(value)
+            if re.fullmatch(r'[A-Z][A-Z0-9_]*=[^\r\n]*', line):
+                with open(os.environ['GITHUB_ENV'], 'a') as env_file:
+                    env_file.write(line + '\n')
+            else:
+                builtins.print(line)
+
         import json
         import sys
 
@@ -77,34 +86,34 @@ jobs:
             summary = data['test_summary']
             success_rate = summary['success_rate']
 
-            print(f'Quick Lean verification success rate: {success_rate:.1f}%')
+            _emit(f'Quick Lean verification success rate: {success_rate:.1f}%')
 
             # Require at least 40% success rate for basic functionality
             if success_rate == 100:
-                print('✅ Basic Lean functionality confirmed')
-                print(f'LEAN_BASIC_FUNCTIONAL=true')
-                print(f'LEAN_SUCCESS_RATE={success_rate:.1f}')
+                _emit('✅ Basic Lean functionality confirmed')
+                _emit(f'LEAN_BASIC_FUNCTIONAL=true')
+                _emit(f'LEAN_SUCCESS_RATE={success_rate:.1f}')
                 with open('verification_status.txt', 'w') as status_file:
                     status_file.write(f'BASIC_LEAN_FUNCTIONAL=true\n')
                     status_file.write(f'SUCCESS_RATE={success_rate:.1f}\n')
                     status_file.write(f'TOTAL_TESTS={summary[\"total_tests\"]}\n')
                     status_file.write(f'PASSED={summary[\"passed\"]}\n')
             else:
-                print('❌ Basic Lean functionality not confirmed')
-                print(f'LEAN_BASIC_FUNCTIONAL=false')
+                _emit('❌ Basic Lean functionality not confirmed')
+                _emit(f'LEAN_BASIC_FUNCTIONAL=false')
                 with open('verification_status.txt', 'w') as status_file:
                     status_file.write(f'BASIC_LEAN_FUNCTIONAL=false\n')
                     status_file.write(f'SUCCESS_RATE={success_rate:.1f}\n')
                 sys.exit(1)
 
         except Exception as e:
-            print(f'Error parsing verification results: {e}')
-            print('LEAN_BASIC_FUNCTIONAL=false')
+            _emit(f'Error parsing verification results: {e}')
+            _emit('LEAN_BASIC_FUNCTIONAL=false')
             with open('verification_status.txt', 'w') as status_file:
                 status_file.write(f'BASIC_LEAN_FUNCTIONAL=false\n')
                 status_file.write(f'ERROR={e}\n')
             sys.exit(1)
-        " >> $GITHUB_ENV
+        "
         else
           echo "❌ Verification report not found"
           echo "LEAN_BASIC_FUNCTIONAL=false" >> $GITHUB_ENV

@@ -92,6 +92,15 @@ jobs:
         # Check for comprehensive test report
         if [ -f "previous-artifacts/comprehensive-test-report/comprehensive_test_report.json" ]; then
           python3 -c "
+        import builtins, os, re
+        def _emit(value):
+            line = str(value)
+            if re.fullmatch(r'[A-Z][A-Z0-9_]*=[^\r\n]*', line):
+                with open(os.environ['GITHUB_ENV'], 'a') as env_file:
+                    env_file.write(line + '\n')
+            else:
+                builtins.print(line)
+
         import json
         with open('previous-artifacts/comprehensive-test-report/comprehensive_test_report.json') as f:
             data = json.load(f)
@@ -99,25 +108,25 @@ jobs:
         summary = data['test_summary']
         success_rate = summary['success_rate']
 
-        print(f'Previous comprehensive test success rate: {success_rate:.1f}%')
+        _emit(f'Previous comprehensive test success rate: {success_rate:.1f}%')
 
         if success_rate == 100:
-            print('✅ Previous Lean verification was successful')
-            print('LEAN_PREVIOUS_SUCCESS=true')
+            _emit('✅ Previous Lean verification was successful')
+            _emit('LEAN_PREVIOUS_SUCCESS=true')
         else:
-            print('❌ Previous Lean verification failed')
-            print('LEAN_PREVIOUS_SUCCESS=false')
+            _emit('❌ Previous Lean verification failed')
+            _emit('LEAN_PREVIOUS_SUCCESS=false')
 
-        print(f'LEAN_PREVIOUS_SUCCESS_RATE={success_rate:.1f}')
-        print(f'LEAN_PREVIOUS_TOTAL_TESTS={summary[\"total_tests\"]}')
-        print(f'LEAN_PREVIOUS_PASSED={summary[\"passed\"]}')
-        print(f'LEAN_PREVIOUS_FAILED={summary[\"failed\"]}')
+        _emit(f'LEAN_PREVIOUS_SUCCESS_RATE={success_rate:.1f}')
+        _emit(f'LEAN_PREVIOUS_TOTAL_TESTS={summary[\"total_tests\"]}')
+        _emit(f'LEAN_PREVIOUS_PASSED={summary[\"passed\"]}')
+        _emit(f'LEAN_PREVIOUS_FAILED={summary[\"failed\"]}')
 
         with open('previous_status.txt', 'w') as f:
             f.write(f'LEAN_PREVIOUS_SUCCESS={success_rate == 100}\n')
             f.write(f'SUCCESS_RATE={success_rate:.1f}\n')
             f.write(f'TOTAL_TESTS={summary[\"total_tests\"]}\n')
-        " >> $GITHUB_ENV
+        "
         else
           echo "❌ No comprehensive test report found"
           echo "LEAN_PREVIOUS_SUCCESS=false" >> $GITHUB_ENV
@@ -170,6 +179,15 @@ jobs:
           if grep -q "test_summary" health_check.json; then
             # Comprehensive test results
             python3 -c "
+        import builtins, os, re
+        def _emit(value):
+            line = str(value)
+            if re.fullmatch(r'[A-Z][A-Z0-9_]*=[^\r\n]*', line):
+                with open(os.environ['GITHUB_ENV'], 'a') as env_file:
+                    env_file.write(line + '\n')
+            else:
+                builtins.print(line)
+
         import json
         with open('health_check.json') as f:
             data = json.load(f)
@@ -177,30 +195,30 @@ jobs:
         summary = data['test_summary']
         success_rate = summary['success_rate']
 
-        print(f'Health check success rate: {success_rate:.1f}%')
+        _emit(f'Health check success rate: {success_rate:.1f}%')
 
         if success_rate == 100:
-            print('✅ Lean health is good')
-            print('LEAN_HEALTH_STATUS=good')
-            print('LEAN_HEALTH_SCORE=healthy')
+            _emit('✅ Lean health is good')
+            _emit('LEAN_HEALTH_STATUS=good')
+            _emit('LEAN_HEALTH_SCORE=healthy')
         elif success_rate >= 25:
-            print('⚠️ Lean health is degraded')
-            print('LEAN_HEALTH_STATUS=degraded')
-            print('LEAN_HEALTH_SCORE=warning')
+            _emit('⚠️ Lean health is degraded')
+            _emit('LEAN_HEALTH_STATUS=degraded')
+            _emit('LEAN_HEALTH_SCORE=warning')
         else:
-            print('❌ Lean health is critical')
-            print('LEAN_HEALTH_STATUS=critical')
-            print('LEAN_HEALTH_SCORE=error')
+            _emit('❌ Lean health is critical')
+            _emit('LEAN_HEALTH_STATUS=critical')
+            _emit('LEAN_HEALTH_SCORE=error')
 
-        print(f'LEAN_CURRENT_SUCCESS_RATE={success_rate:.1f}')
-        print(f'LEAN_CURRENT_TOTAL_TESTS={summary[\"total_tests\"]}')
+        _emit(f'LEAN_CURRENT_SUCCESS_RATE={success_rate:.1f}')
+        _emit(f'LEAN_CURRENT_TOTAL_TESTS={summary[\"total_tests\"]}')
 
         with open('health_status.txt', 'w') as f:
             f.write(f'LEAN_HEALTH_STATUS={success_rate == 100}\n')
             f.write(f'LEAN_HEALTH_SCORE={success_rate == 100}\n')
             f.write(f'CURRENT_SUCCESS_RATE={success_rate:.1f}\n')
             f.write(f'CURRENT_TOTAL_TESTS={summary[\"total_tests\"]}\n')
-        " >> $GITHUB_ENV
+        "
           elif grep -q "LEAN_HEALTH_STATUS" health_check.json; then
             # Status only results
             grep "LEAN_HEALTH_STATUS" health_check.json | while read line; do
