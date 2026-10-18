@@ -30,3 +30,8 @@ files are SHA-256 inventoried as `unverified_source`; reporting never copies
 them into the library or runs `lake update`. Algorithm test cases compile with
 the algorithm and execute an assertion against each expected value. Failed
 compilations retain their diagnostic reports and report zero verified proofs.
+
+CI acceptance requires the strict default build, native regression executable,
+Float counterexamples, all Python tests and the complete eight-case runtime
+compiler suite. Example commands run with private output directories; their
+computational outputs do not certify the legacy research proof drafts.

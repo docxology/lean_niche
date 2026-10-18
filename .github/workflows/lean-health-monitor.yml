@@ -32,6 +32,24 @@ jobs:
       with:
         python-version: '3.10'
 
+    - name: Install verification dependencies
+      run: python -m pip install pytest numpy scipy matplotlib seaborn plotly rich pandas sympy networkx
+
+    - name: Set up the pinned Lean toolchain
+      uses: leanprover/lean-action@24581d74d674803a25a81b10b059c5c0cdd344c6 # v1
+      with:
+        auto-config: 'false'
+        build: 'false'
+        test: 'false'
+        lint: 'false'
+        use-mathlib-cache: 'false'
+
+    - name: Build and test the pinned Lean project
+      run: |
+        lake --wfail build
+        lake exe test_suite
+        lake env lean FloatCounterexamples.lean
+
     - name: Get workflow run status
       if: github.event_name == 'workflow_run'
       run: |
@@ -56,6 +74,14 @@ jobs:
         run-id: ${{ github.event.workflow_run.id }}
         path: previous-artifacts/
 
+    - name: Normalize the triggering native verification report
+      if: github.event_name == 'workflow_run'
+      run: |
+        if [ ! -f previous-artifacts/comprehensive-test-report/comprehensive_test_report.json ] && [ -f previous-artifacts/lean-action-test-report/lean_action_test_report.json ]; then
+          mkdir -p previous-artifacts/comprehensive-test-report
+          cp previous-artifacts/lean-action-test-report/lean_action_test_report.json previous-artifacts/comprehensive-test-report/comprehensive_test_report.json
+        fi
+
     - name: Analyze previous workflow results
       if: github.event_name == 'workflow_run'
       run: |
@@ -64,38 +90,37 @@ jobs:
         # Check for comprehensive test report
         if [ -f "previous-artifacts/comprehensive-test-report/comprehensive_test_report.json" ]; then
           python3 -c "
-          import json
-          with open('previous-artifacts/comprehensive-test-report/comprehensive_test_report.json') as f:
-              data = json.load(f)
+        import json
+        with open('previous-artifacts/comprehensive-test-report/comprehensive_test_report.json') as f:
+            data = json.load(f)
 
-          summary = data['test_summary']
-          success_rate = summary['success_rate']
+        summary = data['test_summary']
+        success_rate = summary['success_rate']
 
-          print(f'Previous comprehensive test success rate: {success_rate:.1f}%')
+        print(f'Previous comprehensive test success rate: {success_rate:.1f}%')
 
-          if success_rate >= 50:
-              print('✅ Previous Lean verification was successful')
-              print('LEAN_PREVIOUS_SUCCESS=true')
-          else:
-              print('❌ Previous Lean verification failed')
-              print('LEAN_PREVIOUS_SUCCESS=false')
+        if success_rate == 100:
+            print('✅ Previous Lean verification was successful')
+            print('LEAN_PREVIOUS_SUCCESS=true')
+        else:
+            print('❌ Previous Lean verification failed')
+            print('LEAN_PREVIOUS_SUCCESS=false')
 
-          print(f'LEAN_PREVIOUS_SUCCESS_RATE={success_rate:.1f}')
-          print(f'LEAN_PREVIOUS_TOTAL_TESTS={summary[\"total_tests\"]}')
-          print(f'LEAN_PREVIOUS_PASSED={summary[\"passed\"]}')
-          print(f'LEAN_PREVIOUS_FAILED={summary[\"failed\"]}')
+        print(f'LEAN_PREVIOUS_SUCCESS_RATE={success_rate:.1f}')
+        print(f'LEAN_PREVIOUS_TOTAL_TESTS={summary[\"total_tests\"]}')
+        print(f'LEAN_PREVIOUS_PASSED={summary[\"passed\"]}')
+        print(f'LEAN_PREVIOUS_FAILED={summary[\"failed\"]}')
 
-          with open('previous_status.txt', 'w') as f:
-              f.write(f'LEAN_PREVIOUS_SUCCESS={success_rate >= 50}\n')
-              f.write(f'SUCCESS_RATE={success_rate:.1f}\n')
-              f.write(f'TOTAL_TESTS={summary[\"total_tests\"]}\n')
-          " >> $GITHUB_ENV
+        with open('previous_status.txt', 'w') as f:
+            f.write(f'LEAN_PREVIOUS_SUCCESS={success_rate == 100}\n')
+            f.write(f'SUCCESS_RATE={success_rate:.1f}\n')
+            f.write(f'TOTAL_TESTS={summary[\"total_tests\"]}\n')
+        " >> $GITHUB_ENV
         else
           echo "❌ No comprehensive test report found"
           echo "LEAN_PREVIOUS_SUCCESS=false" >> $GITHUB_ENV
           echo "LEAN_PREVIOUS_SUCCESS=false" > previous_status.txt
         fi
-
     - name: Run health check verification
       run: |
         CHECK_TYPE="${{ github.event.inputs.check_type }}"
@@ -108,34 +133,33 @@ jobs:
         case $CHECK_TYPE in
           "comprehensive")
             echo "Running comprehensive health check..."
-            timeout 600 python3 src/tests/run_comprehensive_lean_tests.py --no-logging --output-file health_check.json || echo "Health check completed"
+            timeout 600 python3 src/tests/run_comprehensive_lean_tests.py --no-logging --output-file health_check.json
             ;;
           "quick")
             echo "Running quick health check..."
-            timeout 300 python3 src/tests/run_comprehensive_lean_tests.py --no-logging --output-file health_check.json || echo "Quick health check completed"
+            timeout 300 python3 src/tests/run_comprehensive_lean_tests.py --no-logging --output-file health_check.json
             ;;
           "status_only")
             echo "Checking status only..."
             # Just check if we can import and run basic Lean functionality
             python3 -c "
-            import sys
-            sys.path.insert(0, 'src')
-            try:
-                from python.core.lean_runner import LeanRunner
-                runner = LeanRunner()
-                print('✅ LeanRunner import successful')
-                print('LEAN_HEALTH_STATUS=good')
-            except Exception as e:
-                print(f'❌ LeanRunner import failed: {e}')
-                print('LEAN_HEALTH_STATUS=bad')
-            " > health_check.json
+        import sys
+        sys.path.insert(0, 'src')
+        try:
+            from python.core.lean_runner import LeanRunner
+            runner = LeanRunner()
+            print('✅ LeanRunner import successful')
+            print('LEAN_HEALTH_STATUS=good')
+        except Exception as e:
+            print(f'❌ LeanRunner import failed: {e}')
+            print('LEAN_HEALTH_STATUS=bad')
+        " > health_check.json
             ;;
           *)
             echo "Unknown check type: $CHECK_TYPE"
             exit 1
             ;;
         esac
-
     - name: Analyze health check results
       run: |
         echo "🔍 Analyzing health check results..."
@@ -144,37 +168,37 @@ jobs:
           if grep -q "test_summary" health_check.json; then
             # Comprehensive test results
             python3 -c "
-            import json
-            with open('health_check.json') as f:
-                data = json.load(f)
+        import json
+        with open('health_check.json') as f:
+            data = json.load(f)
 
-            summary = data['test_summary']
-            success_rate = summary['success_rate']
+        summary = data['test_summary']
+        success_rate = summary['success_rate']
 
-            print(f'Health check success rate: {success_rate:.1f}%')
+        print(f'Health check success rate: {success_rate:.1f}%')
 
-            if success_rate >= 50:
-                print('✅ Lean health is good')
-                print('LEAN_HEALTH_STATUS=good')
-                print('LEAN_HEALTH_SCORE=healthy')
-            elif success_rate >= 25:
-                print('⚠️ Lean health is degraded')
-                print('LEAN_HEALTH_STATUS=degraded')
-                print('LEAN_HEALTH_SCORE=warning')
-            else:
-                print('❌ Lean health is critical')
-                print('LEAN_HEALTH_STATUS=critical')
-                print('LEAN_HEALTH_SCORE=error')
+        if success_rate == 100:
+            print('✅ Lean health is good')
+            print('LEAN_HEALTH_STATUS=good')
+            print('LEAN_HEALTH_SCORE=healthy')
+        elif success_rate >= 25:
+            print('⚠️ Lean health is degraded')
+            print('LEAN_HEALTH_STATUS=degraded')
+            print('LEAN_HEALTH_SCORE=warning')
+        else:
+            print('❌ Lean health is critical')
+            print('LEAN_HEALTH_STATUS=critical')
+            print('LEAN_HEALTH_SCORE=error')
 
-            print(f'LEAN_CURRENT_SUCCESS_RATE={success_rate:.1f}')
-            print(f'LEAN_CURRENT_TOTAL_TESTS={summary[\"total_tests\"]}')
+        print(f'LEAN_CURRENT_SUCCESS_RATE={success_rate:.1f}')
+        print(f'LEAN_CURRENT_TOTAL_TESTS={summary[\"total_tests\"]}')
 
-            with open('health_status.txt', 'w') as f:
-                f.write(f'LEAN_HEALTH_STATUS={success_rate >= 50}\n')
-                f.write(f'LEAN_HEALTH_SCORE={success_rate >= 50}\n')
-                f.write(f'CURRENT_SUCCESS_RATE={success_rate:.1f}\n')
-                f.write(f'CURRENT_TOTAL_TESTS={summary[\"total_tests\"]}\n')
-            " >> $GITHUB_ENV
+        with open('health_status.txt', 'w') as f:
+            f.write(f'LEAN_HEALTH_STATUS={success_rate == 100}\n')
+            f.write(f'LEAN_HEALTH_SCORE={success_rate == 100}\n')
+            f.write(f'CURRENT_SUCCESS_RATE={success_rate:.1f}\n')
+            f.write(f'CURRENT_TOTAL_TESTS={summary[\"total_tests\"]}\n')
+        " >> $GITHUB_ENV
           elif grep -q "LEAN_HEALTH_STATUS" health_check.json; then
             # Status only results
             grep "LEAN_HEALTH_STATUS" health_check.json | while read line; do
@@ -191,7 +215,6 @@ jobs:
           echo "LEAN_HEALTH_STATUS=false" >> $GITHUB_ENV
           echo "LEAN_HEALTH_STATUS=false" > health_status.txt
         fi
-
     - name: Upload health check results
       uses: actions/upload-artifact@v4
       if: always()

@@ -36,24 +36,22 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pytest pytest-xdist numpy scipy matplotlib seaborn plotly rich
+        pip install pytest pytest-xdist numpy scipy matplotlib seaborn plotly rich pandas sympy networkx
 
-    - name: Setup Lean
-      uses: leanprover/elan-init@v1
-
-    - name: Install lake
-      run: |
-        elan toolchain install stable || true
-        curl https://raw.githubusercontent.com/leanprover/lake/master/install.sh | bash
-
-    - name: Setup Lean environment
-      run: |
-        echo "LEAN_PATH=${{ runner.workspace }}/src/lean:$LEAN_PATH" >> $GITHUB_ENV
+    - name: Set up the pinned Lean toolchain
+      uses: leanprover/lean-action@24581d74d674803a25a81b10b059c5c0cdd344c6 # v1
+      with:
+        auto-config: 'false'
+        build: 'false'
+        test: 'false'
+        lint: 'false'
+        use-mathlib-cache: 'false'
 
     - name: Build Lean project
       run: |
-        lake update
-        lake build
+        lake --wfail build
+        lake exe test_suite
+        lake env lean FloatCounterexamples.lean
 
     - name: Create logs directory
       run: mkdir -p logs
@@ -61,58 +59,57 @@ jobs:
     - name: Run quick Lean verification
       run: |
         echo "🔬 Running Quick Lean Verification Check"
-        timeout 300 python3 src/tests/run_comprehensive_lean_tests.py --no-logging --output-file quick_verification.json || echo "Verification completed with timeout or errors"
+        timeout 300 python3 src/tests/run_comprehensive_lean_tests.py --no-logging --output-file quick_verification.json
 
     - name: Check Lean verification results
       run: |
         echo "🔍 Checking Lean verification results..."
         if [ -f "quick_verification.json" ]; then
           python3 -c "
-          import json
-          import sys
+        import json
+        import sys
 
-          try:
-              with open('quick_verification.json') as f:
-                  data = json.load(f)
+        try:
+            with open('quick_verification.json') as f:
+                data = json.load(f)
 
-              summary = data['test_summary']
-              success_rate = summary['success_rate']
+            summary = data['test_summary']
+            success_rate = summary['success_rate']
 
-              print(f'Quick Lean verification success rate: {success_rate:.1f}%')
+            print(f'Quick Lean verification success rate: {success_rate:.1f}%')
 
-              # Require at least 40% success rate for basic functionality
-              if success_rate >= 40:
-                  print('✅ Basic Lean functionality confirmed')
-                  print(f'LEAN_BASIC_FUNCTIONAL=true')
-                  print(f'LEAN_SUCCESS_RATE={success_rate:.1f}')
-                  with open('verification_status.txt', 'w') as status_file:
-                      status_file.write(f'BASIC_LEAN_FUNCTIONAL=true\n')
-                      status_file.write(f'SUCCESS_RATE={success_rate:.1f}\n')
-                      status_file.write(f'TOTAL_TESTS={summary[\"total_tests\"]}\n')
-                      status_file.write(f'PASSED={summary[\"passed\"]}\n')
-              else:
-                  print('❌ Basic Lean functionality not confirmed')
-                  print(f'LEAN_BASIC_FUNCTIONAL=false')
-                  with open('verification_status.txt', 'w') as status_file:
-                      status_file.write(f'BASIC_LEAN_FUNCTIONAL=false\n')
-                      status_file.write(f'SUCCESS_RATE={success_rate:.1f}\n')
-                  sys.exit(1)
+            # Require at least 40% success rate for basic functionality
+            if success_rate == 100:
+                print('✅ Basic Lean functionality confirmed')
+                print(f'LEAN_BASIC_FUNCTIONAL=true')
+                print(f'LEAN_SUCCESS_RATE={success_rate:.1f}')
+                with open('verification_status.txt', 'w') as status_file:
+                    status_file.write(f'BASIC_LEAN_FUNCTIONAL=true\n')
+                    status_file.write(f'SUCCESS_RATE={success_rate:.1f}\n')
+                    status_file.write(f'TOTAL_TESTS={summary[\"total_tests\"]}\n')
+                    status_file.write(f'PASSED={summary[\"passed\"]}\n')
+            else:
+                print('❌ Basic Lean functionality not confirmed')
+                print(f'LEAN_BASIC_FUNCTIONAL=false')
+                with open('verification_status.txt', 'w') as status_file:
+                    status_file.write(f'BASIC_LEAN_FUNCTIONAL=false\n')
+                    status_file.write(f'SUCCESS_RATE={success_rate:.1f}\n')
+                sys.exit(1)
 
-          except Exception as e:
-              print(f'Error parsing verification results: {e}')
-              print('LEAN_BASIC_FUNCTIONAL=false')
-              with open('verification_status.txt', 'w') as status_file:
-                  status_file.write(f'BASIC_LEAN_FUNCTIONAL=false\n')
-                  status_file.write(f'ERROR={e}\n')
-              sys.exit(1)
-          " >> $GITHUB_ENV
+        except Exception as e:
+            print(f'Error parsing verification results: {e}')
+            print('LEAN_BASIC_FUNCTIONAL=false')
+            with open('verification_status.txt', 'w') as status_file:
+                status_file.write(f'BASIC_LEAN_FUNCTIONAL=false\n')
+                status_file.write(f'ERROR={e}\n')
+            sys.exit(1)
+        " >> $GITHUB_ENV
         else
           echo "❌ Verification report not found"
           echo "LEAN_BASIC_FUNCTIONAL=false" >> $GITHUB_ENV
           echo "BASIC_LEAN_FUNCTIONAL=false" > verification_status.txt
           exit 1
         fi
-
     - name: Upload verification status
       uses: actions/upload-artifact@v4
       if: always()

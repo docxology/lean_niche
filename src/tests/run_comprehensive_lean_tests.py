@@ -178,9 +178,7 @@ theorem commutativity_test : ∀ m n : Nat, m + n = n + m := by
 theorem list_length_append : ∀ (α : Type) (xs ys : List α),
   (xs ++ ys).length = xs.length + ys.length := by
   intro α xs ys
-  induction xs with
-  | nil => rfl
-  | cons x xs' ih => rw [List.length_cons, List.append_cons, ih, Nat.succ_add]
+  exact List.length_append
 """
 
             result = runner.run_theorem_verification(theorem_code, ["LeanNiche.Basic"])

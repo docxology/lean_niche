@@ -231,19 +231,21 @@ class LeanRunner:
             # Build LEAN_PATH environment
             env = os.environ.copy()
             lean_path_entries = []
-            # prefer repo src/lean
-            src_lean = project_root / 'src' / 'lean'
-            if src_lean.exists():
-                lean_path_entries.append(str(src_lean))
-
-            # include any lake build directories (where .olean files live)
-            for p in project_root.glob('.lake/**/build/lib/lean'):
-                if p.exists():
+            # Resolve compiled interfaces before source directories. Lean stops
+            # at a matching source module even when its adjacent .olean is absent.
+            project_build = project_root / '.lake' / 'build' / 'lib' / 'lean'
+            if project_build.is_dir():
+                lean_path_entries.append(str(project_build))
+            for p in sorted(project_root.glob('.lake/**/build/lib/lean')):
+                if p.is_dir() and p != project_build:
                     lean_path_entries.append(str(p))
+            src_lean = project_root / 'src' / 'lean'
+            if src_lean.is_dir():
+                lean_path_entries.append(str(src_lean))
 
             # prepend to existing LEAN_PATH
             existing_lp = env.get('LEAN_PATH', '')
-            combined = ':'.join([*lean_path_entries, existing_lp]) if existing_lp else ':'.join(lean_path_entries)
+            combined = os.pathsep.join([*lean_path_entries, existing_lp]) if existing_lp else os.pathsep.join(lean_path_entries)
             env['LEAN_PATH'] = combined
 
             if not lean_file.is_file():

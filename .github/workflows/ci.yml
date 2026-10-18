@@ -31,27 +31,23 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pytest pytest-cov pytest-xdist
-        pip install numpy scipy matplotlib seaborn plotly rich
+        pip install numpy scipy matplotlib seaborn plotly rich pandas sympy networkx
         pip install codecov
 
-    - name: Install elan (Lean toolchain)
-      uses: leanprover/elan-init@v1
-
-    - name: Install lake
-      run: |
-        elan toolchain install stable || true
-        curl https://raw.githubusercontent.com/leanprover/lake/master/install.sh | bash
-
-    - name: Setup Lean environment
-      run: |
-        echo "::add-path::${{ runner.workspace }}/src/lean" || true
-        export LEAN_PATH="${{ runner.workspace }}/src/lean:${LEAN_PATH}"
-        echo "LEAN_PATH=${{ runner.workspace }}/src/lean:$LEAN_PATH" >> $GITHUB_ENV
+    - name: Set up the pinned Lean toolchain
+      uses: leanprover/lean-action@24581d74d674803a25a81b10b059c5c0cdd344c6 # v1
+      with:
+        auto-config: 'false'
+        build: 'false'
+        test: 'false'
+        lint: 'false'
+        use-mathlib-cache: 'false'
 
     - name: Build Lean project
       run: |
-        lake update
-        lake build
+        lake --wfail build
+        lake exe test_suite
+        lake env lean FloatCounterexamples.lean
 
     - name: Create logs directory
       run: mkdir -p logs
@@ -83,10 +79,14 @@ jobs:
     - name: Run Lean examples to verify real functionality
       run: |
         echo "🔬 Testing Lean examples for real functionality"
-        python3 examples/statistical_analysis_example.py
-        python3 examples/dynamical_systems_example.py
-        python3 examples/control_theory_example.py
-        python3 examples/integration_showcase_example.py
+        mkdir -p "outputs/ci-examples/statistical_analysis"
+        (cd "outputs/ci-examples/statistical_analysis" && PYTHONPATH="$GITHUB_WORKSPACE" python3 "$GITHUB_WORKSPACE/examples/statistical_analysis_example.py")
+        mkdir -p "outputs/ci-examples/dynamical_systems"
+        (cd "outputs/ci-examples/dynamical_systems" && PYTHONPATH="$GITHUB_WORKSPACE" python3 "$GITHUB_WORKSPACE/examples/dynamical_systems_example.py")
+        mkdir -p "outputs/ci-examples/control_theory"
+        (cd "outputs/ci-examples/control_theory" && PYTHONPATH="$GITHUB_WORKSPACE" python3 "$GITHUB_WORKSPACE/examples/control_theory_example.py")
+        mkdir -p "outputs/ci-examples/integration_showcase"
+        (cd "outputs/ci-examples/integration_showcase" && PYTHONPATH="$GITHUB_WORKSPACE" python3 "$GITHUB_WORKSPACE/examples/integration_showcase_example.py")
 
     - name: Upload pytest report
       if: always()
@@ -115,7 +115,7 @@ jobs:
       with:
         name: test-artifacts
         path: |
-          outputs/**
+          outputs/ci-examples/**
           pytest-report.xml
           comprehensive_test_report.json
           .lake/**/build.log
@@ -123,19 +123,19 @@ jobs:
 
     - name: Run lake executable test
       run: |
-        lake exe lean_niche || true
+        lake exe lean_niche
 
     - name: Run lake build tests
       run: |
-        lake build --test || true
+        lake exe test_suite
 
     - name: Validate Lean realness confirmation
       run: |
         echo "🔍 Validating Lean realness confirmation..."
         if [ -f "comprehensive_test_report.json" ]; then
           SUCCESS_RATE=$(python3 -c "import json; data=json.load(open('comprehensive_test_report.json')); print(data['test_summary']['success_rate'])")
-          if (( $(echo "$SUCCESS_RATE >= 50" | bc -l) )); then
-            echo "✅ Lean methods confirmed as real and effective (Success rate: $SUCCESS_RATE%)"
+          if (( $(echo "$SUCCESS_RATE == 100" | bc -l) )); then
+            echo "✅ Qualified core compiler and runtime checks passed (Success rate: $SUCCESS_RATE%)"
             echo "LEAN_REALNESS_CONFIRMED=true" >> $GITHUB_ENV
           else
             echo "❌ Lean methods realness not sufficiently confirmed (Success rate: $SUCCESS_RATE%)"
@@ -156,31 +156,31 @@ jobs:
 
         if [ -f "comprehensive_test_report.json" ]; then
           python3 -c "
-          import json
-          with open('comprehensive_test_report.json') as f:
-              data = json.load(f)
+        import json
+        with open('comprehensive_test_report.json') as f:
+            data = json.load(f)
 
-          summary = data['test_summary']
-          results = data['test_results']
+        summary = data['test_summary']
+        results = data['test_results']
 
-          print(f'### 📊 Test Results')
-          print(f'- **Total Tests**: {summary[\"total_tests\"]}')
-          print(f'- **Passed**: {summary[\"passed\"]}')
-          print(f'- **Failed**: {summary[\"failed\"]}')
-          print(f'- **Success Rate**: {summary[\"success_rate\"]:.1f}%')
-          print(f'- **Duration**: {summary[\"duration_seconds\"]:.2f}s')
-          print('')
-          print('### 📋 Individual Test Results')
-          for test_name, success in results.items():
-              status = '✅ PASSED' if success else '❌ FAILED'
-              print(f'- {status}: {test_name}')
-          print('')
-          print('### 🎯 Lean Methods Status')
-          if summary['success_rate'] >= 50:
-              print('✅ **Lean methods confirmed as real and effective**')
-          else:
-              print('❌ **Lean methods realness not sufficiently confirmed**')
-          " >> $GITHUB_STEP_SUMMARY
+        print(f'### 📊 Test Results')
+        print(f'- **Total Tests**: {summary[\"total_tests\"]}')
+        print(f'- **Passed**: {summary[\"passed\"]}')
+        print(f'- **Failed**: {summary[\"failed\"]}')
+        print(f'- **Success Rate**: {summary[\"success_rate\"]:.1f}%')
+        print(f'- **Duration**: {summary[\"duration_seconds\"]:.2f}s')
+        print('')
+        print('### 📋 Individual Test Results')
+        for test_name, success in results.items():
+            status = '✅ PASSED' if success else '❌ FAILED'
+            print(f'- {status}: {test_name}')
+        print('')
+        print('### 🎯 Lean Methods Status')
+        if summary['success_rate'] == 100:
+            print('✅ **Qualified core compiler and runtime checks passed**')
+        else:
+            print('❌ **Lean methods realness not sufficiently confirmed**')
+        " >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ Comprehensive test report not available" >> $GITHUB_STEP_SUMMARY
         fi
@@ -194,5 +194,3 @@ jobs:
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           done
         fi
-
-

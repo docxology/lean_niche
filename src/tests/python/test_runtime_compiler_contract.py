@@ -60,3 +60,12 @@ def test_algorithm_tests_include_algorithm_and_compare_expected_values():
     bad = runner.run_algorithm_verification(code, [{'expression': 'double 3', 'expected': 7}])
     assert not bad['success'], bad
     assert bad['performance_metrics']['failed_tests'] == 1
+
+
+def test_real_compiler_resolves_built_library_before_source_tree():
+    result = LeanRunner().run_lean_code(
+        "theorem importedWitness (m n : Nat) : m + n = n + m := LeanNiche.Basic.add_comm m n",
+        ["LeanNiche.Basic"],
+    )
+    assert result["success"], result
+    assert result["result"]["verification_status"]["kernel_policy_successful"]

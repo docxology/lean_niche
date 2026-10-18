@@ -7,8 +7,7 @@ on:
       - "Lean Action CI with Real Verification"
       - "Lean Verification on Push"
       - "Lean Methods Realness Check"
-      - "Lean Health Monitor"
-      - "Lean Dashboard"
+      - "Scheduled Lean Verification"
     types:
       - completed
 
@@ -74,6 +73,20 @@ jobs:
         }
         EOF
 
+        # Select the native report from this triggering run, not a dashboard.
+        verification_report=""
+        for candidate in \
+          all-workflow-artifacts/comprehensive-test-report/comprehensive_test_report.json \
+          all-workflow-artifacts/lean-action-test-report/lean_action_test_report.json \
+          all-workflow-artifacts/quick-verification-report/quick_verification.json \
+          all-workflow-artifacts/lean-realness-test-results/realness_test.json \
+          all-workflow-artifacts/scheduled-verification-report/scheduled_verification.json; do
+          if [ -f "$candidate" ]; then
+            verification_report="$candidate"
+            break
+          fi
+        done
+
         # Count available artifacts
         workflow_count=0
         completed_count=0
@@ -134,6 +147,15 @@ jobs:
           fi
         fi
 
+        if [ -d "all-workflow-artifacts/scheduled-verification-report" ]; then
+          workflow_count=$((workflow_count + 1))
+          if [ -f "all-workflow-artifacts/scheduled-verification-report/scheduled_verification.json" ]; then
+            completed_count=$((completed_count + 1))
+          else
+            failed_count=$((failed_count + 1))
+          fi
+        fi
+
         # Update summary with workflow counts
         python3 -c "
         import json
@@ -151,107 +173,108 @@ jobs:
         "
 
         # Process comprehensive test results for detailed analysis
-        if [ -f "all-workflow-artifacts/comprehensive-test-report/comprehensive_test_report.json" ]; then
+        if [ -n "$verification_report" ]; then
           python3 -c "
-          import json
+        import json
 
-          with open('verification_summary.json') as f:
-              summary = json.load(f)
+        with open('verification_summary.json') as f:
+            summary = json.load(f)
 
-          with open('all-workflow-artifacts/comprehensive-test-report/comprehensive_test_report.json') as f:
-              comp_results = json.load(f)
+        with open('$verification_report') as f:
+            comp_results = json.load(f)
 
-          test_summary = comp_results['test_summary']
-          success_rate = test_summary['success_rate']
+        test_summary = comp_results['test_summary']
+        success_rate = test_summary['success_rate']
 
-          # Determine overall status
-          if success_rate >= 60:
-              lean_realness_confirmed = True
-              status_message = 'excellent'
-          elif success_rate >= 40:
-              lean_realness_confirmed = True
-              status_message = 'good'
-          elif success_rate >= 20:
-              lean_realness_confirmed = False
-              status_message = 'degraded'
-          else:
-              lean_realness_confirmed = False
-              status_message = 'critical'
+        # A partial, empty or inconsistent report never confirms verification.
+        native_cases = comp_results['test_results']
+        lean_realness_confirmed = (
+            test_summary['total_tests'] == test_summary['passed'] == 8
+            and test_summary['failed'] == 0
+            and success_rate == 100
+            and len(native_cases) == 8
+            and all(value is True for value in native_cases.values())
+        )
+        status_message = 'excellent' if lean_realness_confirmed else 'degraded'
+        summary['test_results']['successful_workflows'] = int(lean_realness_confirmed)
+        summary['test_results']['failed_workflows'] = (
+            summary['test_results']['total_workflows'] - int(lean_realness_confirmed)
+        )
 
-          summary['overall_status']['lean_realness_confirmed'] = lean_realness_confirmed
-          summary['overall_status']['success_rate'] = success_rate
+        summary['overall_status']['lean_realness_confirmed'] = lean_realness_confirmed
+        summary['overall_status']['success_rate'] = success_rate
 
-          # Analyze individual test results for method status
-          test_results = comp_results['test_results']
-          lean_methods = summary['lean_method_status']
+        # Analyze individual test results for method status
+        test_results = comp_results['test_results']
+        lean_methods = summary['lean_method_status']
 
-          # Check for specific method validations
-          if 'LeanRunner Initialization' in test_results:
-              if test_results['LeanRunner Initialization']:
-                  lean_methods['compilation_successful'] = True
+        # Check for specific method validations
+        if 'Real Lean Execution' in test_results:
+            if test_results['Real Lean Execution']:
+                lean_methods['compilation_successful'] = True
 
-          if 'Real Lean Execution' in test_results:
-              if test_results['Real Lean Execution']:
-                  lean_methods['theorem_verification_working'] = True
+        if 'Real Lean Execution' in test_results:
+            if test_results['Real Lean Execution']:
+                lean_methods['theorem_verification_working'] = True
 
-          if 'Lean Theorem Verification' in test_results:
-              if test_results['Lean Theorem Verification']:
-                  lean_methods['theorem_verification_working'] = True
+        if 'Lean Theorem Verification' in test_results:
+            if test_results['Lean Theorem Verification']:
+                lean_methods['theorem_verification_working'] = True
 
-          if 'Lean Algorithm Verification' in test_results:
-              if test_results['Lean Algorithm Verification']:
-                  lean_methods['algorithm_verification_working'] = True
+        if 'Lean Algorithm Verification' in test_results:
+            if test_results['Lean Algorithm Verification']:
+                lean_methods['algorithm_verification_working'] = True
 
-          if 'Orchestrator Integration' in test_results:
-              if test_results['Orchestrator Integration']:
-                  lean_methods['orchestrator_working'] = True
+        if 'Orchestrator Integration' in test_results:
+            if test_results['Orchestrator Integration']:
+                lean_methods['orchestrator_working'] = True
 
-          # Add recommendations based on results
-          recommendations = []
-          critical_issues = []
+        # Add recommendations based on results
+        recommendations = []
+        critical_issues = []
 
-          if not lean_methods['compilation_successful']:
-              critical_issues.append('Lean compilation not working')
-              recommendations.append('Fix Lean compilation issues')
+        if not lean_methods['compilation_successful']:
+            critical_issues.append('Lean compilation not working')
+            recommendations.append('Fix Lean compilation issues')
 
-          if not lean_methods['theorem_verification_working']:
-              critical_issues.append('Theorem verification failing')
-              recommendations.append('Review theorem verification implementation')
+        if not lean_methods['theorem_verification_working']:
+            critical_issues.append('Theorem verification failing')
+            recommendations.append('Review theorem verification implementation')
 
-          if not lean_methods['algorithm_verification_working']:
-              critical_issues.append('Algorithm verification issues')
-              recommendations.append('Check algorithm verification methods')
+        if not lean_methods['algorithm_verification_working']:
+            critical_issues.append('Algorithm verification issues')
+            recommendations.append('Check algorithm verification methods')
 
-          if success_rate < 40:
-              recommendations.append('Comprehensive review of Lean implementation required')
-              recommendations.append('Check all Lean method implementations')
-              recommendations.append('Verify Lean toolchain installation')
+        if success_rate < 40:
+            recommendations.append('Comprehensive review of Lean implementation required')
+            recommendations.append('Check all Lean method implementations')
+            recommendations.append('Verify Lean toolchain installation')
 
-          summary['overall_status']['critical_issues'] = critical_issues
-          summary['overall_status']['recommendations'] = recommendations
+        summary['overall_status']['critical_issues'] = critical_issues
+        summary['overall_status']['recommendations'] = recommendations
 
-          # Update performance metrics
-          summary['performance_metrics']['total_test_count'] = test_summary['total_tests']
-          summary['performance_metrics']['total_tests_passed'] = test_summary['passed']
-          summary['performance_metrics']['total_tests_failed'] = test_summary['failed']
+        # Update performance metrics
+        summary['performance_metrics']['total_test_count'] = test_summary['total_tests']
+        summary['performance_metrics']['total_tests_passed'] = test_summary['passed']
+        summary['performance_metrics']['total_tests_failed'] = test_summary['failed']
 
-          # Add workflow to analyzed list
-          summary['workflows_analyzed'].append({
-              'name': 'Comprehensive CI',
-              'success_rate': success_rate,
-              'status': status_message
-          })
+        # Add workflow to analyzed list
+        summary['workflows_analyzed'].append({
+            'name': 'Native verification report',
+            'report_file': '$verification_report',
+            'success_rate': success_rate,
+            'status': status_message
+        })
 
-          with open('verification_summary.json', 'w') as f:
-              json.dump(summary, f, indent=2)
+        with open('verification_summary.json', 'w') as f:
+            json.dump(summary, f, indent=2)
 
-          print(f'✅ Processed comprehensive test results: {success_rate:.1f}% success rate')
-          print(f'🔬 Lean realness confirmed: {lean_realness_confirmed}')
-          " || echo "Failed to process comprehensive test results"
+        print(f'✅ Processed comprehensive test results: {success_rate:.1f}% success rate')
+        print(f'🔬 Lean realness confirmed: {lean_realness_confirmed}')
+        "
         fi
 
         echo "📋 Verification summary analysis complete"
-
     - name: Generate final verification report
       run: |
         echo "## 🔬 Lean Verification Summary Report" >> $GITHUB_STEP_SUMMARY
@@ -261,63 +284,63 @@ jobs:
 
         if [ -f "verification_summary.json" ]; then
           python3 -c "
-          import json
+        import json
 
-          with open('verification_summary.json') as f:
-              summary = json.load(f)
+        with open('verification_summary.json') as f:
+            summary = json.load(f)
 
-          overall = summary['overall_status']
-          test_results = summary['test_results']
-          lean_methods = summary['lean_method_status']
+        overall = summary['overall_status']
+        test_results = summary['test_results']
+        lean_methods = summary['lean_method_status']
 
-          print('### 🏥 Overall Status')
-          if overall['lean_realness_confirmed']:
-              print('✅ **Lean Methods Realness: CONFIRMED**')
-          else:
-              print('❌ **Lean Methods Realness: NOT CONFIRMED**')
+        print('### 🏥 Overall Status')
+        if overall['lean_realness_confirmed']:
+            print('✅ **Lean Methods Realness: CONFIRMED**')
+        else:
+            print('❌ **Lean Methods Realness: NOT CONFIRMED**')
 
-          if overall['success_rate']:
-              print(f'📊 **Overall Success Rate**: {overall[\"success_rate\"]:.1f}%')
+        if overall['success_rate']:
+            print(f'📊 **Overall Success Rate**: {overall[\"success_rate\"]:.1f}%')
 
-          print('')
-          print('### 🔄 Workflow Results')
-          print(f'- **Total Workflows**: {test_results[\"total_workflows\"]}')
-          print(f'- **Completed**: {test_results[\"completed_workflows\"]}')
-          print(f'- **Successful**: {test_results[\"successful_workflows\"]}')
-          print(f'- **Failed**: {test_results[\"failed_workflows\"]}')
+        print('')
+        print('### 🔄 Workflow Results')
+        print(f'- **Total Workflows**: {test_results[\"total_workflows\"]}')
+        print(f'- **Completed**: {test_results[\"completed_workflows\"]}')
+        print(f'- **Successful**: {test_results[\"successful_workflows\"]}')
+        print(f'- **Failed**: {test_results[\"failed_workflows\"]}')
 
-          print('')
-          print('### 🔬 Lean Method Status')
-          method_status = [
-              ('Compilation', lean_methods['compilation_successful']),
-              ('Theorem Verification', lean_methods['theorem_verification_working']),
-              ('Algorithm Verification', lean_methods['algorithm_verification_working']),
-              ('Orchestrator Integration', lean_methods['orchestrator_working'])
-          ]
+        print('')
+        print('### 🔬 Lean Method Status')
+        method_status = [
+            ('Compilation', lean_methods['compilation_successful']),
+            ('Theorem Verification', lean_methods['theorem_verification_working']),
+            ('Algorithm Verification', lean_methods['algorithm_verification_working']),
+            ('Orchestrator Integration', lean_methods['orchestrator_working'])
+        ]
 
-          for method, status in method_status:
-              status_icon = '✅' if status else '❌'
-              print(f'{status_icon} **{method}**: {\"Working\" if status else \"Issues Detected\"}')
+        for method, status in method_status:
+            status_icon = '✅' if status else '❌'
+            print(f'{status_icon} **{method}**: {\"Working\" if status else \"Issues Detected\"}')
 
-          if overall['critical_issues']:
-              print('')
-              print('### 🚨 Critical Issues')
-              for issue in overall['critical_issues']:
-                  print(f'- {issue}')
+        if overall['critical_issues']:
+            print('')
+            print('### 🚨 Critical Issues')
+            for issue in overall['critical_issues']:
+                print(f'- {issue}')
 
-          if overall['recommendations']:
-              print('')
-              print('### 💡 Recommendations')
-              for rec in overall['recommendations']:
-                  print(f'- {rec}')
+        if overall['recommendations']:
+            print('')
+            print('### 💡 Recommendations')
+            for rec in overall['recommendations']:
+                print(f'- {rec}')
 
-          print('')
-          print('### 📊 Performance Metrics')
-          perf = summary['performance_metrics']
-          print(f'- **Total Tests**: {perf[\"total_test_count\"]}')
-          print(f'- **Tests Passed**: {perf[\"total_tests_passed\"]}')
-          print(f'- **Tests Failed**: {perf[\"total_tests_failed\"]}')
-          " >> $GITHUB_STEP_SUMMARY
+        print('')
+        print('### 📊 Performance Metrics')
+        perf = summary['performance_metrics']
+        print(f'- **Total Tests**: {perf[\"total_test_count\"]}')
+        print(f'- **Tests Passed**: {perf[\"total_tests_passed\"]}')
+        print(f'- **Tests Failed**: {perf[\"total_tests_failed\"]}')
+        " >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ Verification summary not available" >> $GITHUB_STEP_SUMMARY
         fi
@@ -339,7 +362,6 @@ jobs:
         echo "- ✅ Algorithm verification is operational" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Orchestrator integration is complete" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Comprehensive logging is functional" >> $GITHUB_STEP_SUMMARY
-
     - name: Upload final summary report
       uses: actions/upload-artifact@v4
       with:
@@ -350,28 +372,27 @@ jobs:
       run: |
         if [ -f "verification_summary.json" ]; then
           python3 -c "
-          import json
-          import os
+        import json
+        import os
 
-          with open('verification_summary.json') as f:
-              summary = json.load(f)
+        with open('verification_summary.json') as f:
+            summary = json.load(f)
 
-          overall = summary['overall_status']
-          success_rate = overall.get('success_rate', 0)
+        overall = summary['overall_status']
+        success_rate = overall.get('success_rate', 0)
 
-          if overall.get('lean_realness_confirmed', False) and success_rate >= 40:
-              print('LEAN_FINAL_VERIFICATION=PASSED')
-              print('✅ Lean methods realness confirmed')
-          else:
-              print('LEAN_FINAL_VERIFICATION=FAILED')
-              print('❌ Lean methods realness not confirmed')
+        if overall.get('lean_realness_confirmed', False) and success_rate >= 40:
+            print('LEAN_FINAL_VERIFICATION=PASSED')
+            print('✅ Lean methods realness confirmed')
+        else:
+            print('LEAN_FINAL_VERIFICATION=FAILED')
+            print('❌ Lean methods realness not confirmed')
 
-          print(f'LEAN_SUCCESS_RATE={success_rate:.1f}')
-          " >> $GITHUB_ENV
+        print(f'LEAN_SUCCESS_RATE={success_rate:.1f}')
+        " >> $GITHUB_ENV
         else
           echo "LEAN_FINAL_VERIFICATION=FAILED" >> $GITHUB_ENV
         fi
-
     - name: Final verification status check
       run: |
         if [ "${{ env.LEAN_FINAL_VERIFICATION }}" = "PASSED" ]; then

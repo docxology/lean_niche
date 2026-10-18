@@ -82,101 +82,101 @@ jobs:
         # Process comprehensive test report
         if [ -f "all-artifacts/comprehensive-test-report/comprehensive_test_report.json" ]; then
           python3 -c "
-          import json
+        import json
 
-          # Load dashboard data
-          with open('dashboard_data.json') as f:
-              dashboard = json.load(f)
+        # Load dashboard data
+        with open('dashboard_data.json') as f:
+            dashboard = json.load(f)
 
-          # Load comprehensive test results
-          with open('all-artifacts/comprehensive-test-report/comprehensive_test_report.json') as f:
-              comp_results = json.load(f)
+        # Load comprehensive test results
+        with open('all-artifacts/comprehensive-test-report/comprehensive_test_report.json') as f:
+            comp_results = json.load(f)
 
-          dashboard['workflows']['comprehensive_ci']['status'] = 'completed'
-          dashboard['workflows']['comprehensive_ci']['success_rate'] = comp_results['test_summary']['success_rate']
-          dashboard['workflows']['comprehensive_ci']['test_results'] = comp_results['test_results']
+        dashboard['workflows']['comprehensive_ci']['status'] = 'completed'
+        dashboard['workflows']['comprehensive_ci']['success_rate'] = comp_results['test_summary']['success_rate']
+        dashboard['workflows']['comprehensive_ci']['test_results'] = comp_results['test_results']
 
-          print('✅ Processed comprehensive CI results')
+        print('✅ Processed comprehensive CI results')
 
-          # Update dashboard
-          with open('dashboard_data.json', 'w') as f:
-              json.dump(dashboard, f, indent=2)
-          " || echo "Failed to process comprehensive test results"
+        # Update dashboard
+        with open('dashboard_data.json', 'w') as f:
+            json.dump(dashboard, f, indent=2)
+        " || echo "Failed to process comprehensive test results"
         fi
 
         # Process lean action test report
         if [ -f "all-artifacts/lean-action-test-report/lean_action_test_report.json" ]; then
           python3 -c "
-          import json
+        import json
 
-          # Load dashboard data
-          with open('dashboard_data.json') as f:
-              dashboard = json.load(f)
+        # Load dashboard data
+        with open('dashboard_data.json') as f:
+            dashboard = json.load(f)
 
-          # Load lean action test results
-          with open('all-artifacts/lean-action-test-report/lean_action_test_report.json') as f:
-              action_results = json.load(f)
+        # Load lean action test results
+        with open('all-artifacts/lean-action-test-report/lean_action_test_report.json') as f:
+            action_results = json.load(f)
 
-          dashboard['workflows']['lean_action_ci']['status'] = 'completed'
-          dashboard['workflows']['lean_action_ci']['success_rate'] = action_results['test_summary']['success_rate']
-          dashboard['workflows']['lean_action_ci']['test_results'] = action_results['test_results']
+        dashboard['workflows']['lean_action_ci']['status'] = 'completed'
+        dashboard['workflows']['lean_action_ci']['success_rate'] = action_results['test_summary']['success_rate']
+        dashboard['workflows']['lean_action_ci']['test_results'] = action_results['test_results']
 
-          print('✅ Processed Lean Action CI results')
+        print('✅ Processed Lean Action CI results')
 
-          # Update dashboard
-          with open('dashboard_data.json', 'w') as f:
-              json.dump(dashboard, f, indent=2)
-          " || echo "Failed to process Lean Action test results"
+        # Update dashboard
+        with open('dashboard_data.json', 'w') as f:
+            json.dump(dashboard, f, indent=2)
+        " || echo "Failed to process Lean Action test results"
         fi
 
         # Process quick verification results
         if [ -f "all-artifacts/quick-verification-report/quick_verification.json" ]; then
           python3 -c "
-          import json
+        import json
 
-          # Load dashboard data
-          with open('dashboard_data.json') as f:
-              dashboard = json.load(f)
+        # Load dashboard data
+        with open('dashboard_data.json') as f:
+            dashboard = json.load(f)
 
-          # Load quick verification results
-          with open('all-artifacts/quick-verification-report/quick_verification.json') as f:
-              quick_results = json.load(f)
+        # Load quick verification results
+        with open('all-artifacts/quick-verification-report/quick_verification.json') as f:
+            quick_results = json.load(f)
 
-          dashboard['workflows']['lean_verification']['status'] = 'completed'
-          dashboard['workflows']['lean_verification']['success_rate'] = quick_results['test_summary']['success_rate']
-          dashboard['workflows']['lean_verification']['test_results'] = quick_results['test_results']
+        dashboard['workflows']['lean_verification']['status'] = 'completed'
+        dashboard['workflows']['lean_verification']['success_rate'] = quick_results['test_summary']['success_rate']
+        dashboard['workflows']['lean_verification']['test_results'] = quick_results['test_results']
 
-          print('✅ Processed Lean verification results')
+        print('✅ Processed Lean verification results')
 
-          # Update dashboard
-          with open('dashboard_data.json', 'w') as f:
-              json.dump(dashboard, f, indent=2)
-          " || echo "Failed to process quick verification results"
+        # Update dashboard
+        with open('dashboard_data.json', 'w') as f:
+            json.dump(dashboard, f, indent=2)
+        " || echo "Failed to process quick verification results"
         fi
 
         # Process realness test results
         if [ -f "all-artifacts/lean-realness-test-results/realness_test.json" ]; then
           python3 -c "
-          import json
+        import json
 
-          # Load dashboard data
-          with open('dashboard_data.json') as f:
-              dashboard = json.load(f)
+        # Load dashboard data
+        with open('dashboard_data.json') as f:
+            dashboard = json.load(f)
 
-          # Load realness test results
-          with open('all-artifacts/lean-realness-test-results/realness_test.json') as f:
-              realness_results = json.load(f)
+        # Load realness test results
+        with open('all-artifacts/lean-realness-test-results/realness_test.json') as f:
+            realness_results = json.load(f)
 
-          dashboard['workflows']['realness_check']['status'] = 'completed'
-          dashboard['workflows']['realness_check']['success_rate'] = realness_results['test_summary']['success_rate']
-          dashboard['workflows']['realness_check']['test_results'] = realness_results['test_results']
+        dashboard['workflows']['realness_check']['status'] = 'completed'
+        dashboard['workflows']['realness_check']['success_rate'] = realness_results['test_summary']['success_rate']
+        dashboard['workflows']['realness_check']['test_results'] = realness_results['test_results']
 
-          print('✅ Processed realness check results')
+        print('✅ Processed realness check results')
 
-          # Update dashboard
-          with open('dashboard_data.json', 'w') as f:
-              json.dump(dashboard, f, indent=2)
-          " || echo "Failed to process realness test results"
+        # Update dashboard
+        with open('dashboard_data.json', 'w') as f:
+            json.dump(dashboard, f, indent=2)
+        " || echo "Failed to process realness test results"
         fi
 
         # Calculate overall health score
@@ -195,12 +195,12 @@ jobs:
             total_success_rate = sum(w['success_rate'] for w in completed_workflows if w['success_rate'] is not None)
             avg_success_rate = total_success_rate / len([w for w in completed_workflows if w['success_rate'] is not None])
 
-            if avg_success_rate >= 70:
+            if avg_success_rate == 100 and len(completed_workflows) == len(workflows):
                 health_status = 'excellent'
-                recommendations = ['All Lean methods working correctly', 'Continue regular monitoring']
-            elif avg_success_rate >= 50:
+                recommendations = ['All reported core checks passed', 'Continue regular monitoring']
+            elif avg_success_rate == 100:
                 health_status = 'good'
-                recommendations = ['Lean methods working well', 'Monitor for any degradation']
+                recommendations = ['Available verification reports passed; missing workflow reports remain unverified', 'Await the remaining workflow evidence']
             elif avg_success_rate >= 25:
                 health_status = 'degraded'
                 recommendations = ['Some Lean method issues detected', 'Review failing tests', 'Check Lean code compilation']
@@ -230,7 +230,6 @@ jobs:
         with open('dashboard_data.json', 'w') as f:
             json.dump(dashboard, f, indent=2)
         " || echo "Failed to calculate overall health"
-
     - name: Generate dashboard HTML
       run: |
         python3 -c "
@@ -288,7 +287,7 @@ jobs:
                 <div class=\"metric\">
                     <span class=\"metric-label\">Score:</span>
                     <span class=\"metric-value\">
-                        {dashboard['overall_health']['score']:.1f if dashboard['overall_health']['score'] else 'N/A'}%
+                        {(format(dashboard['overall_health']['score'], '.1f') + '%') if dashboard['overall_health']['score'] is not None else 'N/A'}
                     </span>
                 </div>
                 <div class=\"metric\">
@@ -402,30 +401,30 @@ jobs:
 
         if [ -f "dashboard_data.json" ]; then
           python3 -c "
-          import json
+        import json
 
-          with open('dashboard_data.json') as f:
-              dashboard = json.load(f)
+        with open('dashboard_data.json') as f:
+            dashboard = json.load(f)
 
-          health = dashboard['overall_health']
-          workflows = dashboard['workflows']
+        health = dashboard['overall_health']
+        workflows = dashboard['workflows']
 
-          print('### 🏥 Overall Health')
-          print(f'- **Status**: {health[\"status\"].title()}')
-          if health['score']:
-              print(f'- **Score**: {health[\"score\"]:.1f}%')
-          print(f'- **Completed Workflows**: {health[\"completed_workflows\"]}/{health[\"total_workflows\"]}')
-          print('')
-          print('### 🔄 Workflow Status')
-          for workflow_key, workflow in workflows.items():
-              status = workflow['status']
-              success_rate = f'{workflow[\"success_rate\"]:.1f}%' if workflow['success_rate'] else 'N/A'
-              print(f'- **{workflow[\"name\"]}**: {status.title()} ({success_rate})')
-          print('')
-          print('### 💡 Key Recommendations')
-          for rec in health['recommendations']:
-              print(f'- {rec}')
-          " >> $GITHUB_STEP_SUMMARY
+        print('### 🏥 Overall Health')
+        print(f'- **Status**: {health[\"status\"].title()}')
+        if health['score']:
+            print('- **Score**: ' + (format(health['score'], '.1f') + '%' if health['score'] is not None else 'N/A'))
+        print(f'- **Completed Workflows**: {health[\"completed_workflows\"]}/{health[\"total_workflows\"]}')
+        print('')
+        print('### 🔄 Workflow Status')
+        for workflow_key, workflow in workflows.items():
+            status = workflow['status']
+            success_rate = f'{workflow[\"success_rate\"]:.1f}%' if workflow['success_rate'] else 'N/A'
+            print(f'- **{workflow[\"name\"]}**: {status.title()} ({success_rate})')
+        print('')
+        print('### 💡 Key Recommendations')
+        for rec in health['recommendations']:
+            print(f'- {rec}')
+        " >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ Dashboard data not available" >> $GITHUB_STEP_SUMMARY
         fi
@@ -437,7 +436,6 @@ jobs:
         echo "- 📋 **Individual Reports**: Detailed results from each workflow" >> $GITHUB_STEP_SUMMARY
         echo "- 📁 **Example Outputs**: Generated files from Lean examples" >> $GITHUB_STEP_SUMMARY
         echo "- 📝 **Log Files**: Comprehensive execution logs" >> $GITHUB_STEP_SUMMARY
-
     - name: Comment on PR with dashboard link
       if: github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request'
       uses: actions/github-script@v7
