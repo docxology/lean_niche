@@ -381,15 +381,14 @@ jobs:
         overall = summary['overall_status']
         success_rate = overall.get('success_rate', 0)
 
-        if overall.get('lean_realness_confirmed', False) and success_rate >= 40:
-            print('LEAN_FINAL_VERIFICATION=PASSED')
-            print('✅ Lean methods realness confirmed')
-        else:
-            print('LEAN_FINAL_VERIFICATION=FAILED')
-            print('❌ Lean methods realness not confirmed')
-
-        print(f'LEAN_SUCCESS_RATE={success_rate:.1f}')
-        " >> $GITHUB_ENV
+        confirmed = overall.get('lean_realness_confirmed') is True and success_rate == 100
+        status = 'PASSED' if confirmed else 'FAILED'
+        rate = f'{success_rate:.1f}' if isinstance(success_rate, (int, float)) else 'unavailable'
+        with open(os.environ['GITHUB_ENV'], 'a') as env_file:
+            env_file.write(f'LEAN_FINAL_VERIFICATION={status}\n')
+            env_file.write(f'LEAN_SUCCESS_RATE={rate}\n')
+        print(f'Qualified core verification: {status} ({rate} percent)')
+        "
         else
           echo "LEAN_FINAL_VERIFICATION=FAILED" >> $GITHUB_ENV
         fi
