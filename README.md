@@ -31,7 +31,7 @@ A comprehensive Lean 4 research environment for deep mathematical proofs, algori
 ```
 lean_niche/
 ├── src/                            # Source code
-│   ├── lean/                       # Lean modules (58 files total)
+│   ├── lean/                       # Lean modules (59 files total)
 │   │   ├── LeanNiche/              # Core LeanNiche modules (11 working)
 │   │   │   ├── Basic.lean          # Fundamental mathematical proofs
 │   │   │   ├── Advanced.lean       # Advanced theorems and proofs
@@ -82,8 +82,8 @@ lean_niche/
 │           ├── test_advanced.lean
 │           └── test_comprehensive.lean
 ├── scripts/                        # Build and utility scripts (6 files)
-│   ├── build.sh                   # Lean compilation testing (21/58 success)
-│   ├── test.sh                    # Individual file testing (21/58 success)
+│   ├── build.sh                   # Lean compilation testing
+│   ├── test.sh                    # Individual file testing
 │   ├── analyze.sh                 # Code analysis and import checking
 │   ├── docs.sh                    # Documentation generation
 │   ├── verify_setup.py           # Setup verification (real compilation)
@@ -105,14 +105,16 @@ lean_niche/
 │   ├── ProofGuide.md            # Proof development guide
 │   └── additional guides        # Specialized documentation
 ├── examples/                     # Example usage
-│   ├── BasicExamples.lean       # Basic proof examples
-│   └── AdvancedExamples.lean    # Advanced research examples
+│   ├── statistical_analysis_example.py  # Statistical analysis
+│   ├── dynamical_systems_example.py     # Dynamical systems
+│   ├── control_theory_example.py        # Control theory
+│   ├── integration_showcase_example.py  # Cross-module integration
+│   └── run_all_examples.py              # Runs every example
 ├── data/                         # Research data files
 ├── visualizations/               # Generated plots and diagrams
 ├── notebooks/                    # Jupyter notebooks
 │   └── LeanNiche_Examples.ipynb  # Interactive examples
 ├── logs/                         # Application logs
-├── COMPREHENSIVE_IMPLEMENTATION_SUMMARY.md # Implementation overview
 ├── main.py                       # Python entry point
 ├── Makefile                      # Simplified build commands
 ├── setup.sh                      # Comprehensive setup script
@@ -129,7 +131,7 @@ lean_niche/
 
 ### Prerequisites
 - **Lean 4**: Install via Elan (Lean version manager)
-- **Python 3.8+**: For visualization and utility tools
+- **Python 3.9+**: For visualization and utility tools
 - **uv**: Modern Python package manager
 - **Git**: For dependency management
 - **VS Code** (recommended): With Lean 4 extension
@@ -140,7 +142,7 @@ The easiest way to get started is using the comprehensive setup script:
 
 ```bash
 # Download and run the setup script
-curl -L https://raw.githubusercontent.com/trim/lean_niche/main/setup.sh | bash
+curl -L https://raw.githubusercontent.com/docxology/lean_niche/main/setup.sh | bash
 ```
 
 Or if you already have the repository:
@@ -207,7 +209,7 @@ lake exe lean_niche
 # Test Python utilities
 python -m src.python.cli --help
 
-# Run comprehensive tests (21/58 Lean files compile successfully)
+# Run comprehensive tests (Lean + Python suites)
 ./scripts/test.sh
 
 # Analyze code structure and imports
@@ -628,8 +630,8 @@ def sorted_list := LeanNiche.Computational.insertion_sort [3,1,4,1,5]
 
 ### Custom Scripts (All Working)
 Located in `scripts/` directory:
-- `build.sh`: Lean compilation testing (21/58 files compile successfully)
-- `test.sh`: Individual file testing (21/58 files compile successfully)
+- `build.sh`: Lean compilation testing
+- `test.sh`: Individual file testing
 - `analyze.sh`: Code analysis and import verification (comprehensive reporting)
 - `docs.sh`: Documentation generation (code metrics, usage examples)
 - `verify_setup.py`: Setup verification (honest reporting with real results)

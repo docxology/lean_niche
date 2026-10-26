@@ -167,7 +167,7 @@ examples/
 
 ### Dependencies
 - **Lean 4**: Core theorem prover and proof engine
-- **Python 3.8+**: Data analysis and visualization
+- **Python 3.9+**: Data analysis and visualization
 - **Matplotlib**: Plotting and visualization
 - **NumPy/SciPy**: Numerical computations
 - **Pandas**: Data manipulation

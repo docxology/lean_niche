@@ -40,13 +40,13 @@ Welcome to the LeanNiche comprehensive documentation. This hub provides access t
 
 ## 📊 Project Statistics
 
-*Last updated: December 2024*
+*Last updated: October 2026*
 
 ### Current Implementation Status
-- **Lean files**: 78 (comprehensive formal mathematics)
-- **Lean lines**: 8,945 (verified mathematical proofs and algorithms)
-- **Python files**: 45 (in src directory)
-- **Python lines**: 14,446 (analysis, visualization, and research tools)
+- **Lean files**: 65 (comprehensive formal mathematics)
+- **Lean lines**: 9,001 (verified mathematical proofs and algorithms)
+- **Python files**: 49 (in src directory)
+- **Python lines**: 14,956 (analysis, visualization, and research tools)
 - **Verified theorems**: 150+ formally proven theorems
 - **Mathematical functions**: 500+ implemented and verified
 - **Research domains**: 15+ advanced mathematical areas

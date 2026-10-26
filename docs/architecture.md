@@ -464,8 +464,8 @@ graph TB
     D --> M[100GB+ Storage]
 
     N[Software Requirements] --> O[Operating System]
-    N --> P[Lean 4.22.0+]
-    N --> Q[Python 3.8+]
+    N --> P[Lean 4.35.0+]
+    N --> Q[Python 3.9+]
 
     O --> R[Linux]
     O --> S[macOS]

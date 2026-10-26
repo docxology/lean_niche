@@ -15,8 +15,8 @@ graph TD
     D --> E[Environment Configuration]
     E --> F[Ready for Development]
 
-    B --> G[Lean 4.22.0+]
-    B --> H[Python 3.8+]
+    B --> G[Lean 4.35.0+]
+    B --> H[Python 3.9+]
     B --> I[VS Code + Extensions]
     B --> J[Git]
 
@@ -47,7 +47,7 @@ git clone https://github.com/YOUR_USERNAME/lean_niche.git
 cd lean_niche
 
 # 2. Set up upstream remote
-git remote add upstream https://github.com/trim/lean_niche.git
+git remote add upstream https://github.com/docxology/lean_niche.git
 
 # 3. Install dependencies
 ./setup.sh
@@ -597,17 +597,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Setup Lean
       uses: leanprover/lean-action@v1
       with:
-        version: '4.22.0'
+        version: '4.35.0'
 
     - name: Setup Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v7
       with:
-        python-version: '3.8'
+        python-version: '3.10'
 
     - name: Install dependencies
       run: |

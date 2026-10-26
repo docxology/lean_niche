@@ -89,8 +89,8 @@ src/python/
 ### Technical Specifications
 
 #### Dependencies
-- **Lean 4**: v4.22.0+ (formal verification)
-- **Python**: 3.8+ (computational analysis)
+- **Lean 4**: v4.35.0+ (formal verification)
+- **Python**: 3.9+ (computational analysis)
 - **Mathlib4**: Latest (mathematical foundations)
 - **Scientific Libraries**: NumPy, SciPy, Matplotlib, Seaborn
 

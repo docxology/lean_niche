@@ -27,7 +27,7 @@ structure EnvironmentConfig where
 
 /-- Default configuration settings -/
 def default_config : EnvironmentConfig := {
-  lean_version := "4.22.0"
+  lean_version := "4.35.0"
   mathlib_version := "latest"
   optimization_level := 2
   memory_limit := 4096  -- MB
@@ -105,8 +105,8 @@ def perform_health_checks : IO (List String) := do
   -- Check Lean installation
   try
     let lean_version <- IO.Process.run { cmd := "lean", args := #["--version"] }
-    if lean_version.contains "4.22.0" then
-      issues := issues ++ ["Lean 4.22.0: OK"]
+    if lean_version.contains "4.35.0" then
+      issues := issues ++ ["Lean 4.35.0: OK"]
     else
       issues := issues ++ ["Lean version mismatch"]
   catch

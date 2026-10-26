@@ -228,7 +228,7 @@ setup_python() {
     print_status "Setting up Python environment..."
 
     if ! command -v python3 >/dev/null 2>&1; then
-        print_error "Python 3 not found. Please install Python 3.8+"
+        print_error "Python 3 not found. Please install Python 3.9+"
         exit 1
     fi
 
@@ -436,8 +436,8 @@ RUN curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -
 ENV PATH="/root/.elan/bin:$PATH"
 
 # Set Lean toolchain
-RUN elan toolchain install leanprover/lean4:v4.22.0
-RUN elan default leanprover/lean4:v4.22.0
+RUN elan toolchain install leanprover/lean4:v4.35.0
+RUN elan default leanprover/lean4:v4.35.0
 
 FROM base AS dependencies
 
@@ -935,7 +935,7 @@ packages = ["src/python"]
 ```bash
 # .env - Environment Configuration
 # Lean Settings
-LEAN_VERSION=4.22.0
+LEAN_VERSION=4.35.0
 MATHLIB_VERSION=latest
 LEAN_PATH=/home/user/.elan/bin
 

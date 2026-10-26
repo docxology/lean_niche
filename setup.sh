@@ -148,7 +148,7 @@ setup_python() {
     print_header "Setting up Python Environment"
 
     if ! command_exists python3; then
-        print_error "Python 3 not found. Please install Python 3.8+ and try again."
+        print_error "Python 3 not found. Please install Python 3.9+ and try again."
         exit 1
     fi
 
@@ -195,24 +195,19 @@ name = "LeanNiche"
 version = "0.1.0"
 description = "Advanced Deep Research Environment for Mathematics"
 
-[[require]]
-name = "mathlib"
-version = "4.22.0"
-
 [[lean_lib]]
 name = "LeanNiche"
 srcDir = "src/lean"
 
 [[lean_exe]]
 name = "lean_niche"
-srcDir = "src/lean"
+root = "Main"
+srcDir = "src/lean/core"
 
 [[lean_exe]]
 name = "test_suite"
-srcDir = "src/tests"
-
-[buildOptions]
--- Additional build options can be added here
+root = "TestSuite"
+srcDir = "src/tests/lean"
 EOF
         print_success "lakefile.toml created"
     else
@@ -401,7 +396,7 @@ EOF
 # LeanNiche Environment Configuration
 
 # Lean settings
-LEAN_VERSION=4.22.0
+LEAN_VERSION=4.35.0
 MATHLIB_VERSION=latest
 
 # Python settings
@@ -535,14 +530,14 @@ display_usage() {
     echo ""
     echo -e "${CYAN}📚 Available Modules:${NC}"
     echo "  • Basic Mathematics (11 core Lean modules working)"
-    echo "  • Advanced Mathematics (21/58 Lean files compile)"
+    echo "  • Advanced Mathematics (verified Lean compilation)"
     echo "  • Set Theory & Topology (verified compilation)"
     echo "  • Statistics & Probability (mathematical foundations)"
     echo "  • Dynamical Systems (Lyapunov stability theory)"
     echo "  • Computational Methods (verified algorithms)"
     echo ""
     echo -e "${CYAN}🛠️  Development Tools:${NC}"
-    echo "  • Comprehensive test suite (21/58 files)"
+    echo "  • Comprehensive test suite (Lean + Python)"
     echo "  • Code analysis tools (real import checking)"
     echo "  • Visualization gallery (matplotlib integration)"
     echo "  • Documentation generation"

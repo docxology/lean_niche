@@ -2,7 +2,7 @@
 
 **Layout**: .github/ docs/ examples/ outputs/ scripts/ src/
 **Build system**: Lake (lakefile.toml), Python (pyproject.toml), Lean 4 toolchain v4.35.0
-**Generated artifacts**: lake-manifest.json, outputs/*/, proof_*.lean files
+**Generated artifacts**: lake-manifest.json, outputs/*/
 **Key scripts**: scripts/build.sh, scripts/verify_lean_proofs.py, main.py
 **Mixed language boundaries**: Lean src/lean/, Python src/python/, LaTeX src/latex/
 **Testing**: src/tests/ with Lean TestSuite.lean and Python pytest suite

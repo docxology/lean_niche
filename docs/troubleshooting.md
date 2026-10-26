@@ -150,7 +150,7 @@ lean --version
 ```mermaid
 graph TD
     A[Python Dependencies Fail] --> B[Check Python Version]
-    B --> C{Python 3.8+?}
+    B --> C{Python 3.9+?}
     C -->|No| D[Upgrade Python]
     C -->|Yes| E[Check pip Version]
 
@@ -192,11 +192,11 @@ pip install -e .  # Install in development mode
 # Solution 3: Install specific packages
 pip install matplotlib numpy scipy pandas seaborn plotly
 
-# Solution 4: Use requirements file
-pip install -r requirements.txt
+# Solution 4: Install the declared dependency set
+uv sync
 
 # Solution 5: Fix import path issues
-export PYTHONPATH=$PYTHONPATH:src/python
+export PYTHONPATH=$PYTHONPATH:src
 python -c "from python.cli import cli; print('Import successful')"
 
 # Solution 6: Reinstall problematic packages
@@ -206,8 +206,8 @@ pip install --no-cache-dir package_name
 
 #### Prevention
 ```bash
-# Create requirements.txt
-pip freeze > requirements.txt
+# Keep the lockfile authoritative
+uv lock
 
 # Use virtual environment consistently
 source venv/bin/activate
@@ -258,8 +258,8 @@ graph TD
 # Solution 1: Check and fix toolchain
 elan show
 cat lean-toolchain
-elan toolchain install leanprover/lean4:v4.22.0
-elan default leanprover/lean4:v4.22.0
+elan toolchain install leanprover/lean4:v4.35.0
+elan default leanprover/lean4:v4.35.0
 
 # Solution 2: Update dependencies
 lake update

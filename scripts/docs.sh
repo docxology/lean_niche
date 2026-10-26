@@ -47,7 +47,7 @@ generate_api_docs() {
     print_header "Generating API Documentation"
 
     if ! command_exists python3; then
-        print_error "Python 3 not found. Please install Python 3.8+"
+        print_error "Python 3 not found. Please install Python 3.9+"
         return 1
     fi
 

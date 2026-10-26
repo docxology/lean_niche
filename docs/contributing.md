@@ -77,8 +77,8 @@ graph TD
     F --> G[Ready to Contribute]
 
     B --> H[GitHub Account]
-    B --> I[Lean 4.22.0+]
-    B --> J[Python 3.8+]
+    B --> I[Lean 4.35.0+]
+    B --> J[Python 3.9+]
 
     C --> K[fork repository]
     C --> L[git clone]
@@ -102,7 +102,7 @@ git clone https://github.com/YOUR_USERNAME/lean_niche.git
 cd lean_niche
 
 # 2. Set up upstream remote
-git remote add upstream https://github.com/trim/lean_niche.git
+git remote add upstream https://github.com/docxology/lean_niche.git
 
 # 3. Create a feature branch
 git checkout -b feature/your-feature-name

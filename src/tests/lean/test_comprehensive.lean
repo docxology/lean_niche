@@ -171,7 +171,7 @@ def test_setup : IO Unit := do
 
   -- Test configuration structures
   let config := LeanNiche.Setup.default_config
-  assert_eq config.lean_version "4.22.0"
+  assert_eq config.lean_version "4.35.0"
 
   let security_config := LeanNiche.Setup.default_security_config
   assert_eq security_config.enable_encryption true
