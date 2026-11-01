@@ -11,11 +11,14 @@ on:
     types:
       - completed
 
+permissions:
+  contents: read
+
 jobs:
   verification-summary:
     name: Generate Verification Summary
     runs-on: ubuntu-latest
-    if: always()
+    if: always() && github.event.workflow_run.head_repository.full_name == github.repository
 
     steps:
     - name: Checkout repository

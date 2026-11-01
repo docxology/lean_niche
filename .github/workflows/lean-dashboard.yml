@@ -12,10 +12,16 @@ on:
       - completed
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   lean-dashboard:
     name: Generate Lean Methods Dashboard
     runs-on: ubuntu-latest
+    # A fork-originated run has a different head repository, so this excludes
+    # every run a fork pull request can produce.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository
 
     steps:
     - name: Checkout repository
