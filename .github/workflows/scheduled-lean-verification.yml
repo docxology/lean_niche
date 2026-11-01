@@ -23,10 +23,10 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
 
     - name: Setup Python
-      uses: actions/setup-python@v7
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
       with:
         python-version: '3.10'
 
@@ -94,14 +94,14 @@ jobs:
 
     - name: Upload scheduled verification report
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7.0.2
       with:
         name: scheduled-verification-report
         path: scheduled_verification.json
 
     - name: Upload example outputs
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7.0.2
       with:
         name: scheduled-example-outputs
         path: |
@@ -185,7 +185,7 @@ jobs:
         EOF
 
     - name: Upload health check
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7.0.2
       with:
         name: lean-health-check
         path: lean_health_check.json
