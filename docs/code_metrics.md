@@ -34,9 +34,12 @@ src/lean/
 src/python/
 ├── analysis/            # Mathematical analysis tools
 ├── visualization/       # Advanced plotting and visualization
-├── cli/                 # Command-line interfaces
-├── data_generation/     # Research data generators
-└── utilities/           # Helper functions and tools
+├── control/
+├── core/
+├── dynamical/
+├── integration/
+├── statistical/
+└── utils/               # Helper functions and tools
 ```
 
 ### Research Coverage Areas
