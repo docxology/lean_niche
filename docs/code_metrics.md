@@ -26,7 +26,7 @@ src/lean/
 ├── dynamics/            # Dynamical systems (3 files)
 ├── computation/         # Verified algorithms (1 file)
 ├── core/                # Foundation modules (3 files)
-└── geometry/            # Geometric structures (0 files)
+└── utils/               # Utility modules
 ```
 
 #### Python Research Tools (45 files)
