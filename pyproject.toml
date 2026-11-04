@@ -1,6 +1,6 @@
 [project]
 name = "lean-niche"
-version = "0.1.0"
+version = "0.2.0"
 description = "Python utilities for LeanNiche mathematical research environment"
 readme = "README.md"
 authors = [
@@ -14,8 +14,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -24,7 +22,8 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Visualization",
     "Topic :: Education",
 ]
-requires-python = ">=3.9"
+# 3.11 is the oldest release still receiving security fixes (3.10 reached end of life 2026-10-01, 3.9 on 2025-10-31). Pillow 13.0.0 declares requires-python >=3.11, so an advertised older range keeps a vulnerable pillow in the lock for interpreters that no longer get fixes. Do not lower this floor.
+requires-python = ">=3.11"
 keywords = ["mathematics", "research", "lean", "dynamical-systems", "visualization"]
 dependencies = [
     "matplotlib>=3.8.0",
@@ -37,7 +36,8 @@ dependencies = [
     "ipython>=8.0.0",
     "sympy>=1.12.0",
     "networkx>=3.1.0",
-    "pillow>=10.0.0",
+    # 13.0.0 is the first Pillow release with no open advisory. Do not lower this floor.
+    "pillow>=13.0.0",
     "tqdm>=4.65.0",
     "rich>=13.0.0",
     "click>=8.1.0",
