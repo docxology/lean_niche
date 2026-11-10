@@ -19,6 +19,9 @@ on:
       - 'src/tests/**'
       - 'examples/**'
 
+permissions:
+  contents: read
+
 jobs:
   lean-verification-check:
     name: Lean Methods Realness Check
