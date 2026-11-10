@@ -16,6 +16,9 @@ on:
           - quick
           - examples_only
 
+permissions:
+  contents: read
+
 jobs:
   scheduled-lean-verification:
     name: Scheduled Lean Verification
