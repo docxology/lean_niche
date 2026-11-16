@@ -1,5 +1,11 @@
 # LeanNiche - Deep Research Environment
 
+<p align="center">
+  <a href="https://github.com/docxology/lean_niche/actions/workflows/ci.yml"><img alt="ci.yml workflow status on main" src="https://github.com/docxology/lean_niche/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
+  <img alt="Requires Python 3.11 or newer" src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white">
+</p>
+
 A comprehensive Lean 4 research environment for deep mathematical proofs, algorithm verification, and formal methods research.
 
 ## 🚀 Features
