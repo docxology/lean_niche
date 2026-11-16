@@ -5,5 +5,5 @@
 **Verification**: lean-realness-check.yml, lean-verification-summary.yml, scheduled-lean-verification.yml
 **Lean-specific**: lean_action_ci.yml for specialized Lean CI
 
-See README.md for workflow descriptions and trigger conditions.
+See GITHUB.md for workflow descriptions and trigger conditions.
 Verify: Check workflow syntax with `gh workflow view`

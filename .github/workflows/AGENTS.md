@@ -7,4 +7,4 @@
 **Scheduling**: Automated verification runs
 
 Verify: `gh workflow list` to check status
-See parent README.md for workflow documentation.
+See parent GITHUB.md for workflow documentation.
