@@ -1,8 +1,6 @@
-# Manuscript Documentation
+# LeanNiche manuscript guidance
 
-**Layout**: MANUSCRIPT_STATUS.md
-**Status tracking**: Current manuscript preparation state
-**Undocumented**: No subdirectories yet
-
-See README.md and MANUSCRIPT_STATUS.md for current manuscript state.
-Verify: Check manuscript status updates.
+Keep ordered sections and supporting files here. Trace mathematical claims
+to the exact Lean declarations, and trace runtime claims to the checks for
+the relevant source revision. Preserve the evidence status of generated
+examples and historical proof drafts.

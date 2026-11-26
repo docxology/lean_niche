@@ -1,5 +1,11 @@
-# docs/manuscript/ — Manuscript Status
+# LeanNiche software methods manuscript
 
-Contains `MANUSCRIPT_STATUS.md`, a dated record explaining that LeanNiche is a
-tool/research-environment repository with no publication-track manuscript: its
-deliverables are code, verified proofs, and generated reports under `outputs/`.
+- [Abstract](00_abstract.md)
+- [Library and exact models](01_library.md)
+- [Runtime evidence](02_verification.md)
+- [Interpretation and limits](03_limits.md)
+- [References](99_references.md)
+
+The [configuration](config.yaml), [preamble](preamble.md), and
+[bibliography](references.bib) accompany the ordered sections. Follow
+the [pinned build guide](../manuscript-build.md) for PDF and HTML.

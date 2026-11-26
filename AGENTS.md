@@ -9,8 +9,8 @@
 **Docker**: Available via Makefile targets
 
 Verify: `lake build && python -m pytest src/tests/python/`
-See README.md for full setup and architecture overview.
+See [the documentation index](docs/README.md) for setup and architecture.
 
 The default build includes the public library, CLI and executable regression controls.
 Float computation APIs remain unchanged; exact rational proof models and the
-proof-API correction are documented in [EXACT_MODELS.md](EXACT_MODELS.md).
+proof-API correction are documented in [the exact model guide](docs/exact-models.md).

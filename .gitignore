@@ -60,3 +60,7 @@ docs/build/
 *.tmp
 *.temp
 .cache/
+
+# Generated documentation and shared manuscript renders
+outputs/documentation/
+output/
