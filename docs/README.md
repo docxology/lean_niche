@@ -1,12 +1,9 @@
-# docs/ — Documentation Hub
+# LeanNiche documentation
 
-Topic-oriented documentation for the LeanNiche Lean 4 research environment.
-
-## Contents
-- `index.md`, `architecture.md`, `mathematical-foundations.md`, `lean-overview.md`, `lean-in-leanniche.md` — orientation and theory
-- `api-reference.md`, `code_metrics.md`, `performance.md` — generated/reference material
-- `development.md`, `contributing.md`, `deployment.md`, `troubleshooting.md` — operational guides
-- `examples.md`, `research-applications.md`, `ProofGuide.md` — usage and research docs
-- `manuscript/` — manuscript status record (see `manuscript/README.md`)
-
-Start at `index.md`.
+- [Setup and verification](deployment.md) for the pinned Lean toolchain and native tests
+- [Architecture](architecture.md) for the supported library, executable targets, and Python runner
+- [Developing and checking a proof](ProofGuide.md) for a minimal checked theorem and interpretation of its axioms
+- [Exact models and Float computation](exact-models.md) for the corrected proof boundary
+- [Examples](examples.md) and [maintenance](development.md) for safe regeneration paths
+- [Software methods manuscript](manuscript/README.md) and [pinned PDF and HTML build](manuscript-build.md)
+- [Historical guides](archive/README.md) and [retained example outputs](../outputs/README.md) for versioned material

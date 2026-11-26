@@ -17,7 +17,7 @@
 | `build.sh` | `lake clean`/`lake build`/`lake exe lean_niche`, `lean` | Multi-target (`clean\|build\|test\|docs\|analyze\|perf\|verify\|lean\|all`); shell-level orchestration only |
 | `test.sh` | `lake build`, `lean` | Lean-only suite; Python tests run via pytest, not this script |
 | `analyze.sh` | inline `find`/`wc`/`grep`/`lean` reporting | Metrics/reporting; no src module yet |
-| `docs.sh` | `python3` import check, `lean`/`grep` extraction | Writes `docs/code_metrics.md` and usage examples |
+| `docs.sh` | `find` and `wc` source inventory | Writes `outputs/documentation/code_metrics.md` |
 | `verify_setup.py` | `src/python/utils/setup_verifier.py` (`SetupVerifier`) | Sanctioned role: environment check; logic moved out of the script 2026-09 |
 | `verify_lean_proofs.py` | `lean` (logic currently inline) | Legacy deviation: verification logic not yet migrated to `src/` |
 

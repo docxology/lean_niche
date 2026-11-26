@@ -1,0 +1,15 @@
+paper:
+  title: "LeanNiche: Exact Models and Compiler Evidence"
+  subtitle: "Software methods for a Lean 4 research environment"
+authors:
+  - name: "Daniel Ari Friedman"
+    orcid: "0000-0001-6232-9096"
+publication:
+  repository_url: "https://github.com/docxology/lean_niche"
+render:
+  formats:
+    pdf: true
+    html: true
+    slides: false
+    docx: false
+    epub: false
