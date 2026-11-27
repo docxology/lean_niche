@@ -8,8 +8,19 @@
 **Testing**: src/tests/ with Lean TestSuite.lean and Python pytest suite
 **Docker**: Available via Makefile targets
 
-Verify: `lake build && python -m pytest src/tests/python/`
-See [the documentation index](docs/README.md) for setup and architecture.
+Run verification from the repository root after preparing the Lean compiler
+from [lean-toolchain](lean-toolchain) and the locked Python 3.13 environment:
+
+```sh
+uv sync --locked --python 3.13
+lake --wfail build
+lake exe test_suite
+uv run --no-sync --python 3.13 python -m pytest src/tests/python/
+```
+
+The [deployment guide](docs/deployment.md) covers compiler setup and the
+separate compiler-integration battery. The [documentation index](docs/README.md)
+links the architecture and manuscript build.
 
 The default build includes the public library, CLI and executable regression controls.
 Float computation APIs remain unchanged; exact rational proof models and the
